@@ -223,6 +223,21 @@ app.post("/api/live/token", auth, async (req,res) => {
   if (!roomName || roomName.length>100 || !/^[a-zA-Z0-9_-]+$/.test(roomName)) return res.status(400).json({error:"Room name is invalid."});
   if (!process.env.LIVEKIT_URL || !process.env.LIVEKIT_API_KEY || !process.env.LIVEKIT_API_SECRET) return res.status(503).json({error:"LiveKit is not configured yet. Set LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET."});
   try {
+    const match = roomName.match(/^room-(\\d+)$/);
+    if (!match) return res.status(400).json({error:"Room name is invalid."});
+    const roomId = match[1];
+    const roomResult = await pool.query("SELECT id,kind,owner_id FROM rooms WHERE id=$1", [roomId]);
+    if (!roomResult.rowCount) return res.status(404).json({error:"Live room not found."});
+    // Call rooms are private: only caller/callee can join, and only after acceptance.
+    const callResult = await pool.query("SELECT caller_id,callee_id,status FROM call_requests WHERE room_id=$1 ORDER BY id DESC LIMIT 1", [roomId]);
+    if (callResult.rowCount) {
+      const activeCall = callResult.rows[0];
+      if (!["ringing","accepted"].includes(activeCall.status)) return res.status(410).json({error:"This call has ended."});
+      if (![String(activeCall.caller_id), String(activeCall.callee_id)].includes(String(req.user.id))) {
+        return res.status(403).json({error:"This one-to-one call is private."});
+      }
+      if (activeCall.status !== "accepted") return res.status(409).json({error:"The other user must accept the call first."});
+    }
     const token=new AccessToken(process.env.LIVEKIT_API_KEY,process.env.LIVEKIT_API_SECRET,{identity:String(req.user.id),name:req.user.username,ttl:"1h"});
     token.addGrant({roomJoin:true,room:roomName,canPublish:true,canSubscribe:true,canPublishData:true});
     res.json({url:process.env.LIVEKIT_URL,token:await token.toJwt(),roomName});
