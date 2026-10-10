@@ -92,18 +92,40 @@ async function setupLiveChat(roomId){
    if(history){if(history.textContent==='No gifts yet.')history.textContent='';const item=document.createElement('p');item.textContent=(gift.emoji||'🎁')+' '+String(gift.sender||'Viewer')+' · '+String(gift.label||gift.gift_key)+' ('+String(gift.coins)+' coins)';history.prepend(item);while(history.children.length>10)history.lastElementChild.remove();}
  };
  socket.on('live:gift',socket.__liveGiftHandler);
- const form=$('host-comment-form');
- if(form&&!form.dataset.bound){
-   form.dataset.bound='1';
-   form.addEventListener('submit',async e=>{
-     e.preventDefault();const input=$('host-comment-input'),body=input.value.trim();if(!body)return;
-     const send=form.querySelector('button[type="submit"]');send.disabled=true;
-     try{const result=await new Promise(resolve=>socket.emit('room:message',{roomId:String(roomId),body},resolve));if(result?.error)throw Error(result.error);input.value=''}
-     catch(err){status('Comment not sent: '+(err.message||'Try again.'))}
-     finally{send.disabled=false}
-   });
- }
 }
+// Always prevent the comment form's native submit/reload, even when chat connection is offline.
+document.addEventListener('submit',async e=>{
+ const form=e.target;
+ if(!form || form.id!=='host-comment-form')return;
+ e.preventDefault();
+ e.stopPropagation();
+ const input=form.querySelector('#host-comment-input');
+ const send=form.querySelector('button[type="submit"]');
+ const body=(input?.value||'').trim();
+ if(!body)return;
+ if(!socket||!socket.connected){
+   status('Comment not sent: chat is reconnecting. Your live is still running.');
+   return;
+ }
+ const roomId=$('room-id').value.trim();
+ if(!/^\d+$/.test(roomId)){
+   status('Comment not sent: live room ID is missing.');
+   return;
+ }
+ if(send)send.disabled=true;
+ try{
+   const result=await new Promise((resolve,reject)=>{
+     const timer=setTimeout(()=>reject(Error('Chat reply timed out.')),5000);
+     socket.emit('room:message',{roomId,body},result=>{clearTimeout(timer);resolve(result)});
+   });
+   if(result?.error)throw Error(result.error);
+   input.value='';
+ }catch(err){
+   status('Comment not sent: '+(err.message||'Try again.')+'. Your live should remain active.');
+ }finally{
+   if(send)send.disabled=false;
+ }
+},true);
 async function joinMedia(id){
  if(!token)throw Error('Please sign in first.');
  await leaveMedia();
