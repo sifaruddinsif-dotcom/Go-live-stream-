@@ -53,8 +53,20 @@ async function joinMedia(id){
  const mod=await import('https://cdn.jsdelivr.net/npm/agora-rtc-sdk-ng@4.24.1/+esm');
  const AgoraRTC=mod.default||mod;
  const box=$('media-view');
- box.innerHTML='<div id="media-connection-status" class="note" style="margin-bottom:10px">Connecting to '+safe(data.mode==='rtc'?'1-to-1 call':'live stream')+'…</div><div id="agora-local" style="display:block;width:100%;min-height:220px;height:42vh;max-height:420px;border-radius:14px;background:#080611;overflow:hidden"></div><div id="agora-remote" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>';
- $('room-id').value=String(id);$('room-id-label').textContent='Connecting to room #'+id+'…';box.scrollIntoView({behavior:'smooth',block:'center'});
+ const isHost=data.role==='host';
+ const liveTitle=$('room-title')?.value.trim()||'My Live';
+ box.innerHTML=isHost
+ ? '<div class="host-live-ui"><div class="host-live-top"><button type="button" class="host-exit" id="host-exit" aria-label="Leave live">×</button><div class="host-title-block"><b>'+safe(liveTitle)+'</b><small>🔴 LIVE · <span id="host-viewer-count">0 viewers</span></small></div><button type="button" class="host-share" id="host-share">↗ Share</button></div><div class="host-room-strip"><span>🪙 0 coins</span><span>Room #'+safe(id)+'</span><button type="button" id="host-copy-room">▢ Copy ID</button></div><div id="media-connection-status" class="host-live-status">Connecting to live stream…</div><div id="agora-local" class="host-video"></div><div class="host-chat-overlay" id="host-chat-overlay"><div class="host-chat-message">🎉 Your live has started. Welcome viewers!</div></div><div class="host-hearts" aria-hidden="true">💗<br>💖</div><div class="host-live-bottom"><button type="button" class="host-gift" id="host-gift">🎁<small>Gift</small></button><div class="host-comment"><span>Comments appear here</span></div></div><div id="host-gift-panel" class="host-gift-panel" hidden><b>Gifts</b><p>Gift sending will be enabled after the coin wallet is connected.</p><div>🌹　💗　👑</div></div></div><div id="agora-remote" style="display:none"></div>'
+ : '<div id="media-connection-status" class="note" style="margin-bottom:10px">Connecting to '+safe(data.mode==='rtc'?'1-to-1 call':'live stream')+'…</div><div id="agora-local" style="display:block;width:100%;min-height:220px;height:42vh;max-height:420px;border-radius:14px;background:#080611;overflow:hidden"></div><div id="agora-remote" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>';
+ $('room-id').value=String(id);$('room-id-label').textContent='Connecting to room #'+id+'…';
+ if(isHost){
+   $('host-exit').onclick=()=>$('leave-media').click();
+   $('host-share').onclick=async()=>{try{await navigator.share({title:'FUN LIVE',text:'Join my live stream on FUN LIVE. Room #'+id,url:location.href})}catch(e){if(e.name!=='AbortError')status('Share cancelled or unavailable. Use Copy ID to share room #'+id)}};
+   $('host-copy-room').onclick=async()=>{try{await navigator.clipboard.writeText(String(id));$('host-copy-room').textContent='✓ Copied'}catch{status('Live room number: '+id)}};
+   $('host-gift').onclick=()=>{$('host-gift-panel').hidden=!$('host-gift-panel').hidden};
+   $('host-viewer-count').textContent='0 viewers';
+ }
+ box.scrollIntoView({behavior:'smooth',block:'center'});
  mediaClient=AgoraRTC.createClient({mode:data.mode==='rtc'?'rtc':'live',codec:'vp8'});
  mediaClient.on('user-published',async(user,mediaType)=>{
    try{
@@ -68,7 +80,8 @@ async function joinMedia(id){
    }catch(e){status('Could not play remote media: '+(e.message||'unknown error'))}
  });
  mediaClient.on('user-unpublished',(user,mediaType)=>{if(mediaType==='video'){const el=document.getElementById('agora-user-'+user.uid);if(el)el.remove()}});
- mediaClient.on('user-left',user=>{const el=document.getElementById('agora-user-'+user.uid);if(el)el.remove()});
+ mediaClient.on('user-left',user=>{const el=document.getElementById('agora-user-'+user.uid);if(el)el.remove();if($('host-viewer-count'))$('host-viewer-count').textContent=Math.max(0,Number($('host-viewer-count').dataset.count||0)-1)+' viewers';});
+ mediaClient.on('user-joined',user=>{if($('host-viewer-count')){const n=Number($('host-viewer-count').dataset.count||0)+1;$('host-viewer-count').dataset.count=String(n);$('host-viewer-count').textContent=n+' viewers';}});
  status('Connecting to Agora media server…');
  try{
    await mediaClient.join(data.appId,data.channelName,data.token,data.uid);
@@ -87,7 +100,7 @@ async function joinMedia(id){
      cameraTrack.play('agora-local');
      await mediaClient.publish([micTrack,cameraTrack]);
      const connectionStatus=$('media-connection-status');
-     if(connectionStatus)connectionStatus.textContent='🔴 YOU ARE LIVE — camera and microphone connected';
+     if(connectionStatus)connectionStatus.textContent='🔴 LIVE · Camera and microphone connected';
      status('✅ Agora connected. Your camera and microphone are live.');
    }else{
      const connectionStatus=$('media-connection-status');
