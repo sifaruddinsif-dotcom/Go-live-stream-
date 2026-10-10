@@ -1,19 +1,19 @@
-# GO LIVE Streaming App
+# GO LIVE STREAM — app + API foundation
 
-Mobile-first GO LIVE prototype using the approved dark navy/purple background with bright pink accents.
+The public web UI is hosted as a Render static site. This repository now also includes an Express/PostgreSQL API foundation.
 
-## Included
-- Home and live discovery
-- Live viewer preview
-- Party room UI
-- PK battle and demo gifts
-- Messages, Explore, Wallet, Profile, More
-- Installable PWA manifest and offline shell cache
+## API endpoints
+- GET /health
+- POST /api/auth/register — username, email, password (10+ chars)
+- POST /api/auth/login — email, password
+- GET /api/me and PATCH /api/me (Bearer token)
+- GET /api/rooms
+- POST /api/rooms (Bearer token; kind voice or live)
+- GET /api/rooms/:id/messages (Bearer token)
+- Socket.IO authenticated events: room:join and room:message
 
-## Run / deploy
-Static site: publish this repository with GitHub Pages or a static hosting provider. Open `index.html` for a quick preview. Service-worker offline support requires HTTPS or localhost.
+## Separate API deployment
+Create a Render Web Service from this repository, branch main, runtime Node, build command `npm install`, start command `npm start`. Add a managed PostgreSQL database and set DATABASE_URL, JWT_SECRET (random secret, at least 32 characters), ALLOWED_ORIGINS and NODE_ENV=production. Do not commit real secrets.
 
-## Important limitations
-This is a UI prototype, not a production live-streaming service. Real video and voice require a provider such as LiveKit or Agora. Authentication, persistent database, realtime chat, secure payment checkout, coin ledger, host earnings, verified withdrawals, agency/admin tools, moderation, privacy/terms and security testing still need backend implementation. Do not accept real payments or promise withdrawals from this demo.
-
-Keep the approved GO LIVE design unchanged unless the owner requests changes.
+## Important: not production-complete yet
+This backend is a foundation, not a finished streaming platform. Real-time media is NOT implemented: configure LiveKit/Agora and server-side token issuance before enabling live audio/video. Payments, coin purchase ledger, creator earnings, withdrawals, identity/age checks, moderation, reports/blocks, privacy policy/terms, admin/agency panels, backups and security/load testing are still required. The current wallet and gifts in the web UI are demo-only and must not be used for real money.
