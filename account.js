@@ -61,8 +61,8 @@ async function joinMedia(id){
  await mediaRoom.connect(data.url,data.token);
  if(String(id)===$('room-id').value.trim())status('Connected to room '+id+'. Allow camera/microphone permissions when asked.');
  try{
-   const tracks=await mediaRoom.localParticipant.enableCameraAndMicrophone();
-   for(const track of tracks){const el=track.attach();el.autoplay=true;el.playsInline=true;el.style.cssText='width:100%;max-width:280px;border-radius:12px;margin:6px;background:#111';box.appendChild(el)}
+   await mediaRoom.localParticipant.enableCameraAndMicrophone();
+   for(const publication of mediaRoom.localParticipant.trackPublications.values()){const track=publication.track;if(track&&(track.kind==='video'||track.kind==='audio')){const el=track.attach();el.autoplay=true;el.playsInline=true;el.style.cssText='width:100%;max-width:280px;border-radius:12px;margin:6px;background:#111';box.appendChild(el)}}
    status('Live media connected. Camera and microphone are publishing.');
  }catch(e){status('Joined room, but camera/microphone permission failed: '+e.message+'. Check browser permissions.')}
  $('leave-media').hidden=false;
@@ -76,7 +76,7 @@ $('send').onclick=()=>action(async()=>{
  if(!socket){await ensureScript('https://cdn.socket.io/4.8.1/socket.io.min.js','io');socket=window.io(endpoint,{auth:{token}});await new Promise((resolve,reject)=>{socket.once('connect',resolve);socket.once('connect_error',e=>reject(Error(e.message||'Realtime chat connection failed.')))});}
  const joined=await new Promise(resolve=>socket.emit('room:join',{roomId:id},resolve));if(joined?.error)throw Error(joined.error);
  const sent=await new Promise(resolve=>socket.emit('room:message',{roomId:id,body},resolve));if(sent?.error)throw Error(sent.error);
- $('message').value='';await $('history').onclick();status('Message sent.');
+ $('message').value='';const history=await call('/api/rooms/'+id+'/messages');$('messages').innerHTML=history.messages.map(m=>'<div class="chat"><b>'+safe(m.username)+':</b> '+safe(m.body)+'</div>').join('');status('Message sent.');
 });
 if(token&&endpoint)action(async()=>{const r=await call('/api/me');accountLabel('Signed in as '+r.user.username);});
 action(async()=>{const r=await call('/health');status(r.ok&&r.database==='connected'?'API connected; database connected.':'API health check failed.')});
