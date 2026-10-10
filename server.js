@@ -165,10 +165,16 @@ io.on("connection", socket => {
     }
   });
   socket.on("room:join", async ({ roomId } = {}, done = () => {}) => {
-    if (!/^\d+$/.test(String(roomId || ""))) return done({ error: "Invalid room." });
-    const r = await pool.query("SELECT id FROM rooms WHERE id=$1", [roomId]);
-    if (!r.rowCount) return done({ error: "Room not found." });
-    socket.join("room:" + roomId); done({ ok: true });
+    try {
+      if (!/^\d+$/.test(String(roomId || ""))) return done({ error: "Invalid room." });
+      const r = await pool.query("SELECT id FROM rooms WHERE id=$1", [roomId]);
+      if (!r.rowCount) return done({ error: "Room not found." });
+      await socket.join("room:" + roomId);
+      done({ ok: true });
+    } catch (e) {
+      console.error("Socket room:join failed:", e?.message || "unknown error");
+      done({ error: "Could not join chat room." });
+    }
   });
   socket.on("room:message", async ({ roomId, body } = {}, done = () => {}) => {
     try {
