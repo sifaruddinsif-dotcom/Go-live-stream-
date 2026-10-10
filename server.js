@@ -84,7 +84,8 @@ async function initDb() {
       coins BIGINT NOT NULL CHECK(coins > 0),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-    CREATE INDEX IF NOT EXISTS live_gifts_room_created_idx ON live_gifts(room_id,created_at DESC);\n    CREATE TABLE IF NOT EXISTS follows (
+    CREATE INDEX IF NOT EXISTS live_gifts_room_created_idx ON live_gifts(room_id,created_at DESC);
+    CREATE TABLE IF NOT EXISTS follows (
       follower_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       following_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -458,9 +459,9 @@ app.post("/api/live/report", auth, async (req,res) => {
 });
 app.get("/api/rankings/weekly", async (_req,res) => {
   try {
-    const r=await pool.query(\`SELECT u.id,u.username,COALESCE(SUM(g.coins),0)::bigint AS coins,COUNT(g.id)::int AS gifts
+    const r=await pool.query(`SELECT u.id,u.username,COALESCE(SUM(g.coins),0)::bigint AS coins,COUNT(g.id)::int AS gifts
       FROM users u LEFT JOIN live_gifts g ON g.receiver_id=u.id AND g.created_at>=NOW()-INTERVAL '7 days'
-      GROUP BY u.id,u.username ORDER BY coins DESC,gifts DESC,u.username ASC LIMIT 20\`);
+      GROUP BY u.id,u.username ORDER BY coins DESC,gifts DESC,u.username ASC LIMIT 20`);
     res.json({period:"last_7_days",rankings:r.rows.map((u,i)=>({...u,rank:i+1,coins:Number(u.coins)}))});
   } catch {res.status(500).json({error:"Could not load weekly rankings."});}
 });
