@@ -62,6 +62,29 @@ async function initDb() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS call_requests_callee_status_idx ON call_requests(callee_id,status,created_at DESC);
+    CREATE TABLE IF NOT EXISTS wallet_accounts (
+      user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      balance BIGINT NOT NULL DEFAULT 100 CHECK(balance >= 0),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS wallet_transactions (
+      id BIGSERIAL PRIMARY KEY,
+      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      amount BIGINT NOT NULL,
+      kind VARCHAR(24) NOT NULL,
+      reference TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS live_gifts (
+      id BIGSERIAL PRIMARY KEY,
+      room_id BIGINT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+      sender_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      receiver_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      gift_key VARCHAR(24) NOT NULL,
+      coins BIGINT NOT NULL CHECK(coins > 0),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS live_gifts_room_created_idx ON live_gifts(room_id,created_at DESC);
   `);
 }
 function tokenFor(user) { return jwt.sign({ sub: String(user.id), username: user.username }, JWT_SECRET, { expiresIn: "7d", issuer: "go-live-stream" }); }
@@ -133,6 +156,57 @@ io.on("connection", socket => {
     } catch { done({ error: "Could not send message." }); }
   });
 });
+const GIFT_CATALOG = Object.freeze({
+  rose: { label: "Rose", emoji: "🌹", coins: 10 },
+  heart: { label: "Heart", emoji: "💖", coins: 20 },
+  crown: { label: "Crown", emoji: "👑", coins: 100 }
+});
+app.get("/api/wallet", auth, async (req,res) => {
+  try {
+    await pool.query("INSERT INTO wallet_accounts(user_id,balance) VALUES($1,100) ON CONFLICT(user_id) DO NOTHING",[req.user.id]);
+    const r=await pool.query("SELECT balance FROM wallet_accounts WHERE user_id=$1",[req.user.id]);
+    res.json({balance:Number(r.rows[0].balance),currency:"FUN coins",notice:"Promotional test coins only; they have no cash value."});
+  } catch { res.status(500).json({error:"Could not load wallet."}); }
+});
+app.get("/api/gifts/catalog", (_req,res) => res.json({gifts:Object.entries(GIFT_CATALOG).map(([key,g])=>({key,...g}))}));
+app.post("/api/gifts/send", auth, async (req,res) => {
+  const roomId=String(req.body?.roomId||"");
+  const giftKey=String(req.body?.giftKey||"");
+  const gift=GIFT_CATALOG[giftKey];
+  if(!/^\\d+$/.test(roomId)||!gift) return res.status(400).json({error:"Choose a valid live room and gift."});
+  const client=await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const room=await client.query("SELECT id,owner_id,kind FROM rooms WHERE id=$1 FOR UPDATE",[roomId]);
+    if(!room.rowCount||room.rows[0].kind!=="live"){await client.query("ROLLBACK");return res.status(404).json({error:"Live room not found."});}
+    const receiverId=String(room.rows[0].owner_id);
+    if(receiverId===String(req.user.id)){await client.query("ROLLBACK");return res.status(400).json({error:"You cannot send a gift to yourself."});}
+    await client.query("INSERT INTO wallet_accounts(user_id,balance) VALUES($1,100) ON CONFLICT(user_id) DO NOTHING",[req.user.id]);
+    await client.query("INSERT INTO wallet_accounts(user_id,balance) VALUES($1,100) ON CONFLICT(user_id) DO NOTHING",[receiverId]);
+    const sender=await client.query("SELECT balance FROM wallet_accounts WHERE user_id=$1 FOR UPDATE",[req.user.id]);
+    if(Number(sender.rows[0].balance)<gift.coins){await client.query("ROLLBACK");return res.status(402).json({error:"Not enough FUN coins. Use the free test coins or top up after payment setup."});}
+    await client.query("UPDATE wallet_accounts SET balance=balance-$1,updated_at=NOW() WHERE user_id=$2",[gift.coins,req.user.id]);
+    await client.query("UPDATE wallet_accounts SET balance=balance+$1,updated_at=NOW() WHERE user_id=$2",[gift.coins,receiverId]);
+    const tx=await client.query("INSERT INTO live_gifts(room_id,sender_id,receiver_id,gift_key,coins) VALUES($1,$2,$3,$4,$5) RETURNING id,room_id,gift_key,coins,created_at",[roomId,req.user.id,receiverId,giftKey,gift.coins]);
+    await client.query("INSERT INTO wallet_transactions(user_id,amount,kind,reference) VALUES($1,$2,'gift_sent',$3),($4,$5,'gift_received',$3)",[req.user.id,-gift.coins,String(tx.rows[0].id),receiverId,gift.coins]);
+    const balances=await client.query("SELECT balance FROM wallet_accounts WHERE user_id=$1",[req.user.id]);
+    await client.query("COMMIT");
+    const payload={...tx.rows[0],sender:req.user.username,...gift};
+    io.to("live:"+roomId).emit("live:gift",payload);
+    res.status(201).json({gift:payload,balance:Number(balances.rows[0].balance)});
+  } catch(e) {
+    await client.query("ROLLBACK").catch(()=>{});
+    console.error("Gift send failed:",e?.message||"unknown error");
+    res.status(500).json({error:"Could not send gift."});
+  } finally {client.release();}
+});
+app.get("/api/gifts/received", auth, async (req,res) => {
+  try {
+    const r=await pool.query("SELECT g.id,g.room_id,g.gift_key,g.coins,g.created_at,u.username AS sender FROM live_gifts g JOIN users u ON u.id=g.sender_id WHERE g.receiver_id=$1 ORDER BY g.created_at DESC LIMIT 50",[req.user.id]);
+    res.json({gifts:r.rows});
+  } catch {res.status(500).json({error:"Could not load received gifts."});}
+});
+app.get("/api/gifts/catalog", (_req,res) => res.json({gifts:Object.entries(GIFT_CATALOG).map(([key,g])=>({key,...g}))});
 app.get("/health", async (_req, res) => {
   const mediaConfigured = Boolean(process.env.AGORA_APP_ID && process.env.AGORA_APP_CERTIFICATE);
   try { await pool.query("SELECT 1"); res.json({ ok: true, service: "go-live-stream-api", database: "connected", mediaConfigured }); }
