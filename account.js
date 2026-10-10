@@ -43,7 +43,7 @@ async function joinMedia(id){
  const data=await call('/api/live/token','POST',{roomName});
  const {Room,RoomEvent,Track}=await import('https://cdn.jsdelivr.net/npm/livekit-client@2.15.6/+esm');
  mediaRoom=new Room({adaptiveStream:true,dynacast:true});
- const box=$('media-view');box.innerHTML='<div class="note">Connecting to media room '+safe(roomName)+'…</div>';
+ const box=$('media-view');box.innerHTML='<div class="note">Connecting to media room '+safe(roomName)+'…</div>'; $('room-id').value=String(id); $('room-id-label').textContent='Connecting to room #'+id+'…'; box.scrollIntoView({behavior:'smooth',block:'center'});
  mediaRoom.on(RoomEvent.ConnectionStateChanged,state=>status('Media connection: '+state+'.'));
  mediaRoom.on(RoomEvent.TrackSubscribed,(track,publication,participant)=>{
    if(track.kind==='video'||track.kind==='audio'){
@@ -56,13 +56,13 @@ async function joinMedia(id){
  status('Connecting to media server…');
  try {
    await Promise.race([mediaRoom.connect(data.url,data.token),new Promise((_,reject)=>setTimeout(()=>reject(Error('Media server did not respond within 15 seconds. Check LiveKit URL and server status.')),15000))]);
- } catch(e) { try{await mediaRoom.disconnect()}catch{} mediaRoom=null;box.innerHTML='<div class="note">Media connection failed. Room exists, but voice/video server did not connect.</div>';throw Error(e.message||'Could not connect to media server.'); }
+ } catch(e) { try{await mediaRoom.disconnect()}catch{} mediaRoom=null;box.innerHTML='<div class="note">Media connection failed. Room exists, but voice/video server did not connect.</div>'; box.scrollIntoView({behavior:'smooth',block:'center'}); throw Error(e.message||'Could not connect to media server.'); }
  if(String(id)===$('room-id').value.trim())status('Connected to room '+id+'. Allow camera/microphone permissions when asked.');
  try{
    await mediaRoom.localParticipant.enableCameraAndMicrophone();
    for(const publication of mediaRoom.localParticipant.trackPublications.values()){const track=publication.track;if(track&&(track.kind==='video'||track.kind==='audio')){const el=track.attach();el.autoplay=true;el.playsInline=true;el.style.cssText='width:100%;max-width:280px;border-radius:12px;margin:6px;background:#111';box.appendChild(el)}}
    status('Live media connected. Camera and microphone are publishing.');
- }catch(e){status('Joined room, but camera/microphone permission failed: '+e.message+'. Check browser permissions.')}
+ }catch(e){status('Joined room, but camera/microphone permission failed: '+e.message+'. Check browser permissions.'); box.scrollIntoView({behavior:'smooth',block:'center'})}
  $('leave-media').hidden=false;$('toggle-mic').disabled=false;$('toggle-camera').disabled=false;
 }
 async function leaveMedia(){if(mediaRoom){try{await mediaRoom.disconnect()}catch{}mediaRoom=null}$('media-view').innerHTML='';$('leave-media').hidden=true}
@@ -93,7 +93,7 @@ document.addEventListener('click',e=>{
 $('join-call').onclick=()=>action(async()=>{const id=$('call-room-id').value.trim();if(!/^\d+$/.test(id))throw Error('Enter a valid call room number.');$('room-id-label').textContent='Joining call room #'+id;await joinMedia(id)});
 $('toggle-mic').onclick=()=>action(async()=>{if(!mediaRoom)throw Error('Join a live or call first.');const p=mediaRoom.localParticipant;const enabled=p.isMicrophoneEnabled;await p.setMicrophoneEnabled(!enabled);$('toggle-mic').textContent=enabled?'🎙️ Unmute Mic':'🎙️ Mute Mic';});
 $('toggle-camera').onclick=()=>action(async()=>{if(!mediaRoom)throw Error('Join a live or call first.');const p=mediaRoom.localParticipant;const enabled=p.isCameraEnabled;await p.setCameraEnabled(!enabled);$('toggle-camera').textContent=enabled?'📷 Camera On':'📷 Camera Off';});
-document.addEventListener('click',e=>{const b=e.target.closest('[data-join]');if(b){$('room-id').value=b.dataset.join;action(()=>joinMedia(b.dataset.join))}});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-join]');if(b){$('room-id').value=b.dataset.join;$('room-id-label').textContent='Opening live room #'+b.dataset.join+'…';action(()=>joinMedia(b.dataset.join))}});
 $('send').onclick=()=>action(async()=>{
  if(!token)throw Error('Please sign in first.');
  const id=$('room-id').value.trim(),body=$('message').value.trim();if(!/^\d+$/.test(id)||!body)throw Error('Enter a room ID and message.');
