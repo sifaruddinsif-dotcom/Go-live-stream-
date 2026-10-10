@@ -121,6 +121,13 @@ document.addEventListener('submit',async e=>{
  // Prefer the room ID passed into joinMedia: the shared account form field can be stale
  // when the live UI has been rendered or a previous room was left.
  let roomId=String(form.dataset.roomId||form.closest('[data-live-room-id]')?.dataset.liveRoomId||window.__funLiveActiveRoomId||socket?.__activeLiveRoom||$('room-id')?.value.trim()||'').trim();
+ // Last-resort recovery from the room number visibly rendered on this exact live card.
+ if(!/^\\d+$/.test(roomId)){
+   const liveCard=form.closest('.host-live-ui,.live-viewer-ui')||document.querySelector('.host-live-ui,.live-viewer-ui');
+   const visibleRoom=[...(liveCard?.querySelectorAll('.host-room-strip span')||[])].map(el=>el.textContent||'').join(' ');
+   const match=visibleRoom.match(/Room\\s*#?\\s*(\\d+)/i);
+   if(match)roomId=match[1];
+ }
  if(!socket||!socket.connected){
    const note=document.createElement('div');
    note.className='live-comment-notice';
