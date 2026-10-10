@@ -5,14 +5,14 @@ let endpoint=localStorage.getItem('golive_api_endpoint')||'https://go-live-strea
 let token=sessionStorage.getItem('golive_token')||'';
 let mediaRoom=null,socket=null;
 $('endpoint').value=endpoint;
-function status(s){$('status').textContent=s}
+function status(s){const el=$('status');el.textContent=s;el.style.cssText='display:block;padding:12px;margin:12px 0;border-radius:12px;background:#24182f;color:#fff;border:1px solid #ff329d;white-space:pre-wrap;overflow-wrap:anywhere';}
 async function call(path,method='GET',body){
  if(!endpoint)throw Error('API address is missing.');
  const response=await fetch(endpoint+path,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},...(body?{body:JSON.stringify(body)}:{})});
  const json=await response.json().catch(()=>({error:'Invalid API response'}));
  if(!response.ok)throw Error(json.error||'Request failed');return json;
 }
-async function action(fn){try{await fn()}catch(e){status(e.message)}}
+async function action(fn){try{await fn()}catch(e){status('⚠️ '+(e.message||'Something went wrong.'));$('status').scrollIntoView({behavior:'smooth',block:'center'});}}
 function accountLabel(user){const u=typeof user==='string'?{username:user}:user; $('account').textContent='Signed in as '+u.username+(u.id?' · GO LIVE ID: GLS'+String(u.id).padStart(8,'0'):''); if(u.id)localStorage.setItem('golive_user',JSON.stringify({id:u.id,username:u.username,email:u.email||''}));}
 $('connect').onclick=()=>action(async()=>{
  const url=$('endpoint').value.trim().replace(/\/$/,'');
@@ -33,7 +33,7 @@ $('refresh').onclick=()=>action(async()=>{
  const r=await call('/api/rooms');$('room-list').innerHTML=r.rooms.length?r.rooms.map(x=>'<div class="row"><span>'+safe(x.title)+' ('+safe(x.kind)+')</span><small>Room #'+safe(x.id)+' · '+safe(x.host)+'</small><button class="primary" data-join="'+safe(x.id)+'">Join media</button></div>').join(''):'<p>No rooms yet. Sign in and create one.</p>';status('Rooms loaded.');
 });
 $('create').onclick=()=>action(async()=>{
- const r=await call('/api/rooms','POST',{title:$('room-title').value,kind:$('room-kind').value});$('room-id').value=r.room.id;status('Room #'+r.room.id+' created. Tap Join media to start camera/microphone.');await loadRooms();
+ if(!token)throw Error('Pehle Register ya Login karo, phir room create hoga.');const title=$('room-title').value.trim();if(!title)throw Error('Room title likho.');status('Creating room…');const r=await call('/api/rooms','POST',{title,kind:$('room-kind').value});$('room-id').value=r.room.id;status('✅ Room #'+r.room.id+' created. Ab Join media dabao.');await loadRooms();
 });
 async function loadRooms(){const r=await call('/api/rooms');$('room-list').innerHTML=r.rooms.length?r.rooms.map(x=>'<div class="row"><span>'+safe(x.title)+' ('+safe(x.kind)+')</span><small>Room #'+safe(x.id)+' · '+safe(x.host)+'</small><button class="primary" data-join="'+safe(x.id)+'">Join media</button></div>').join(''):'<p>No rooms yet.</p>'}
 $('history').onclick=()=>action(async()=>{
