@@ -22,7 +22,7 @@ $('connect').onclick=()=>action(async()=>{
 });
 $('register').onclick=()=>action(async()=>{
  const r=await call('/api/auth/register','POST',{username:$('username').value,email:$('email').value,password:$('password').value});
- token=r.token;sessionStorage.setItem('golive_token',token);accountLabel('Signed in as '+r.user.username);status('Account created successfully.');
+ token=r.token;sessionStorage.setItem('golive_token',token);accountLabel('Signed in as '+r.user.username);$('password').value='';status('Account created with email. You are signed in.');
 });
 $('login').onclick=()=>action(async()=>{
  const r=await call('/api/auth/login','POST',{email:$('email').value,password:$('password').value});
