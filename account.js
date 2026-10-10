@@ -145,7 +145,7 @@ async function setupLiveChat(roomId){
    const overlay=$('host-chat-overlay')||$('viewer-chat-overlay');
    if(overlay){const line=document.createElement('div');line.className='host-chat-message';line.textContent=(gift.emoji||'🎁')+' '+String(gift.sender||'Viewer')+' sent '+String(gift.label||gift.gift_key||'a gift');overlay.appendChild(line);while(overlay.children.length>4)overlay.firstElementChild.remove();}
    const history=$('host-gift-history');
-   if(history){if(history.textContent==='No gifts yet.')history.textContent='';const item=document.createElement('p');item.textContent=(gift.emoji||'🎁')+' '+String(gift.sender||'Viewer')+' · '+String(gift.label||gift.gift_key)+' ('+String(gift.coins)+' coins)';history.prepend(item);while(history.children.length>10)history.lastElementChild.remove();}
+   if(history){if(history.textContent==='No gifts yet.')history.textContent='';const item=document.createElement('p');item.textContent=(gift.emoji||'🎁')+' '+String(gift.sender||'Viewer')+' · '+String(gift.label||gift.gift_key)+' (host +'+String(gift.hostCoins??Math.floor((Number(gift.coins)||0)*0.6))+' coins)';history.prepend(item);while(history.children.length>10)history.lastElementChild.remove();}
    const liveBox=document.querySelector('.host-live-ui,.live-viewer-ui');if(liveBox){const burst=document.createElement('div');burst.className='gift-burst';burst.textContent=gift.emoji||'🎁';liveBox.appendChild(burst);setTimeout(()=>burst.remove(),1600);}
    playGiftSound(gift.sound||((Number(gift.coins)||0)>=500?'fanfare':'chime'));
  };
