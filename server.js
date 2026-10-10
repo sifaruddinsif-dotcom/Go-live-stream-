@@ -87,7 +87,7 @@ io.use((socket, next) => {
 io.on("connection", socket => {
   socket.on("live:join", async ({ roomId } = {}, done = () => {}) => {
     try {
-      if (!/^\\d+$/.test(String(roomId || ""))) return done({ error: "Invalid live room." });
+      if (!/^\d+$/.test(String(roomId || ""))) return done({ error: "Invalid live room." });
       const r = await pool.query("SELECT id,kind FROM rooms WHERE id=$1", [roomId]);
       if (!r.rowCount || r.rows[0].kind !== "live") return done({ error: "Live room not found." });
       const liveRoom = "live:" + roomId;
