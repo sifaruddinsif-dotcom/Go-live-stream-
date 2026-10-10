@@ -22,7 +22,7 @@ $('connect').onclick=()=>action(async()=>{
 });
 $('register').onclick=()=>action(async()=>{
  const r=await call('/api/auth/register','POST',{username:$('username').value,email:$('email').value,password:$('password').value});
- token=r.token;sessionStorage.setItem('golive_token',token);accountLabel('Signed in as '+r.user.username);$('password').value='';status('Account created with email. You are signed in.');
+ token=r.token;sessionStorage.setItem('golive_token',token);accountLabel(r.user);$('password').value='';status('Account created with email. You are signed in.');
 });
 $('login').onclick=()=>action(async()=>{
  const r=await call('/api/auth/login','POST',{email:$('email').value,password:$('password').value});
@@ -30,12 +30,12 @@ $('login').onclick=()=>action(async()=>{
 });
 $('logout').onclick=async()=>{await leaveMedia();token='';sessionStorage.removeItem('golive_token');accountLabel('Signed out.');localStorage.removeItem('golive_user');status('You have signed out.')};
 $('refresh').onclick=()=>action(async()=>{
- const r=await call('/api/rooms');$('rooms').innerHTML=r.rooms.length?r.rooms.map(x=>'<div class="row"><span>'+safe(x.title)+' ('+safe(x.kind)+')</span><small>Room #'+safe(x.id)+' · '+safe(x.host)+'</small><button class="primary" data-join="'+safe(x.id)+'">Join media</button></div>').join(''):'<p>No rooms yet. Sign in and create one.</p>';status('Rooms loaded.');
+ const r=await call('/api/rooms');$('room-list').innerHTML=r.rooms.length?r.rooms.map(x=>'<div class="row"><span>'+safe(x.title)+' ('+safe(x.kind)+')</span><small>Room #'+safe(x.id)+' · '+safe(x.host)+'</small><button class="primary" data-join="'+safe(x.id)+'">Join media</button></div>').join(''):'<p>No rooms yet. Sign in and create one.</p>';status('Rooms loaded.');
 });
 $('create').onclick=()=>action(async()=>{
  const r=await call('/api/rooms','POST',{title:$('room-title').value,kind:$('room-kind').value});$('room-id').value=r.room.id;status('Room #'+r.room.id+' created. Tap Join media to start camera/microphone.');await loadRooms();
 });
-async function loadRooms(){const r=await call('/api/rooms');$('rooms').innerHTML=r.rooms.length?r.rooms.map(x=>'<div class="row"><span>'+safe(x.title)+' ('+safe(x.kind)+')</span><small>Room #'+safe(x.id)+' · '+safe(x.host)+'</small><button class="primary" data-join="'+safe(x.id)+'">Join media</button></div>').join(''):'<p>No rooms yet.</p>'}
+async function loadRooms(){const r=await call('/api/rooms');$('room-list').innerHTML=r.rooms.length?r.rooms.map(x=>'<div class="row"><span>'+safe(x.title)+' ('+safe(x.kind)+')</span><small>Room #'+safe(x.id)+' · '+safe(x.host)+'</small><button class="primary" data-join="'+safe(x.id)+'">Join media</button></div>').join(''):'<p>No rooms yet.</p>'}
 $('history').onclick=()=>action(async()=>{
  const id=$('room-id').value.trim();if(!/^\d+$/.test(id))throw Error('Enter a numeric room ID.');
  const r=await call('/api/rooms/'+id+'/messages');
