@@ -14,8 +14,10 @@
 <button class="primary" id="refresh">Find Live Streams</button><div id="room-list"></div>
 </div>
 <div class="room"><h2>💗 1-to-1 Video Call</h2><p class="note">Create a private call room and share its room number with the other person. Both people must join the same room.</p>
-<input class="input" id="call-title" maxlength="100" placeholder="Call name">
-<button class="primary" id="create-call">Create 1-to-1 Call</button>
+<input class="input" id="call-user" placeholder="Search username or GO LIVE ID (GLS00000001)">
+<button class="primary" id="search-user">Find User</button><div id="user-results"></div>
+<button class="primary" id="create-call" disabled>Call Selected User</button>
+<div id="incoming-calls"></div>
 <input class="input" id="call-room-id" placeholder="Enter call room number" inputmode="numeric">
 <button class="primary" id="join-call">Join Video Call</button>
 </div>
