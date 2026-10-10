@@ -48,7 +48,7 @@ async function ensureScript(src,globalName){if(window[globalName])return;await n
 async function setupLiveChat(roomId){
  if(!token)throw Error('Sign in again to connect live chat.');
  if(!/^\d+$/.test(String(roomId||'')))throw Error('Live room ID is missing.');
- await ensureScript('https://cdn.socket.io/4.8.1/socket.io.min.js','io');
+ await ensureScript(endpoint.replace(/\/$/, '')+'/socket.io/socket.io.js','io');
  if(!socket||!socket.connected){
    if(socket)try{socket.disconnect()}catch{}
    socket=window.io(endpoint,{auth:{token},transports:['polling','websocket'],upgrade:true,rememberUpgrade:false,timeout:10000,reconnection:true,reconnectionAttempts:5,reconnectionDelay:800,forceNew:true});
