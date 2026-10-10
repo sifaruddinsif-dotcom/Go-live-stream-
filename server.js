@@ -192,6 +192,14 @@ app.get("/api/calls/incoming", auth, async (req,res) => {
     res.json({calls:r.rows});
   } catch { res.status(500).json({error:"Could not load incoming calls."}); }
 });
+app.get("/api/calls/:id", auth, async (req,res) => {
+  if(!/^\\d+$/.test(req.params.id)) return res.status(400).json({error:"Invalid call ID."});
+  try {
+    const r=await pool.query("SELECT id,room_id,status,caller_id,callee_id FROM call_requests WHERE id=$1 AND (caller_id=$2 OR callee_id=$2)",[req.params.id,req.user.id]);
+    if(!r.rowCount) return res.status(404).json({error:"Call not found."});
+    res.json({call:r.rows[0]});
+  } catch { res.status(500).json({error:"Could not check call status."}); }
+});
 app.post("/api/calls/:id/respond", auth, async (req,res) => {
   if(!/^\\d+$/.test(req.params.id)) return res.status(400).json({error:"Invalid call ID."});
   const decision=String(req.body?.decision||"");
