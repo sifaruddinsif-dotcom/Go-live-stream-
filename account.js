@@ -56,7 +56,7 @@ async function joinMedia(id){
  status('Connecting to media server…');
  try {
    await Promise.race([mediaRoom.connect(data.url,data.token),new Promise((_,reject)=>setTimeout(()=>reject(Error('Media server did not respond within 15 seconds. Check LiveKit URL and server status.')),15000))]);
- } catch(e) { try{await mediaRoom.disconnect()}catch{} mediaRoom=null;box.innerHTML='<div class="note">Media connection failed. Room exists, but voice/video server did not connect.</div>'; box.scrollIntoView({behavior:'smooth',block:'center'}); throw Error(e.message||'Could not connect to media server.'); }
+ } catch(e) { try{await mediaRoom.disconnect()}catch{} mediaRoom=null;box.innerHTML='<div class="note" style="color:#ff8dbd">❌ Media connection failed: '+safe(e.message||'Unknown connection error')+'. Check the LiveKit server URL, project status, and network connection.</div>'; box.scrollIntoView({behavior:'smooth',block:'center'}); throw Error('LiveKit connection failed: '+(e.message||'Unknown connection error')); }
  if(String(id)===$('room-id').value.trim())status('Connected to room '+id+'. Allow camera/microphone permissions when asked.');
  try{
    await mediaRoom.localParticipant.enableCameraAndMicrophone();
