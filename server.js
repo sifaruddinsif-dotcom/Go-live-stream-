@@ -243,7 +243,8 @@ app.post("/api/live/token", auth, async (req,res) => {
     if (!Number.isSafeInteger(uid) || uid<1 || uid>2147483647) return res.status(400).json({error:"User ID is outside Agora's supported range."});
     const isCall=Boolean(callResult.rowCount);
     const isHost=isCall || String(roomResult.rows[0].owner_id)===String(req.user.id);
-    const rtcToken=RtcTokenBuilder.buildTokenWithUid(appId,certificate,roomName,uid,RTC_ROLE_PUBLISHER,3600,3600);
+    const privilegeExpiredTs=Math.floor(Date.now()/1000)+3600;
+    const rtcToken=RtcTokenBuilder.buildTokenWithUid(appId,certificate,roomName,uid,RTC_ROLE_PUBLISHER,privilegeExpiredTs);
     res.json({appId,channelName:roomName,token:rtcToken,uid,role:isHost?"host":"audience",mode:isCall?"rtc":"live"});
   } catch (e) {
     console.error("Agora token generation failed:",e?.message||"unknown error");
