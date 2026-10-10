@@ -94,6 +94,22 @@ app.get("/health", async (_req, res) => {
   try { await pool.query("SELECT 1"); res.json({ ok: true, service: "go-live-stream-api", database: "connected" }); }
   catch { res.status(503).json({ ok: false, database: "unavailable" }); }
 });
+app.post("/api/auth/guest", rateLimit({ windowMs: 60 * 60 * 1000, limit: 10, standardHeaders: true, legacyHeaders: false }), async (_req, res) => {
+  try {
+    const suffix = crypto.randomBytes(8).toString("hex");
+    const username = "guest_" + suffix;
+    const email = "guest_" + suffix + "@guest.golive.invalid";
+    const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10);
+    const result = await pool.query(
+      "INSERT INTO users(username,email,password_hash) VALUES($1,$2,$3) RETURNING id,username,email,bio,created_at",
+      [username,email,passwordHash]
+    );
+    const user = result.rows[0];
+    res.status(201).json({ user, token: tokenFor(user), guest: true });
+  } catch {
+    res.status(500).json({ error: "Could not start guest session. Please try again." });
+  }
+});
 app.post("/api/auth/register", async (req, res) => {
   try {
     const email = String(req.body?.email || "").trim().toLowerCase();
