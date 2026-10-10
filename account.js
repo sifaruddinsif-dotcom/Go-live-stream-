@@ -329,7 +329,7 @@ $('leave-media').onclick=()=>action(async()=>{await leaveMedia();if(activeCallId
 $('search-user').onclick=()=>action(async()=>{
  const q=$('call-user').value.trim();if(!q)throw Error('Enter username or GO LIVE ID.');
  const r=await call('/api/users/search?q='+encodeURIComponent(q));
- $('user-results').innerHTML=r.users.length?r.users.map(u=>'<button type="button" class="primary" data-user-id="'+safe(u.id)+'" data-user-name="'+safe(u.username)+'">'+safe(u.username)+' · '+safe(u.goLiveId)+'</button>').join(''):'<p>No user found. Ask them to open GO LIVE once first.</p>';
+ $('user-results').innerHTML=r.users.length?r.users.map(u=>'<div class="user-call-card"><span class="user-call-avatar">👤</span><span class="user-call-meta"><b>'+safe(u.username)+'</b><small>'+safe(u.goLiveId)+' · 🔒 Private 1-to-1</small></span><button type="button" data-user-id="'+safe(u.id)+'" data-user-name="'+safe(u.username)+'">📹 Call Now</button></div>').join(''):'<p>No user found. Ask them to create an account first.</p>';
 });
 document.addEventListener('click',e=>{const b=e.target.closest('[data-user-id]');if(b){selectedCallUser={id:b.dataset.userId,name:b.dataset.userName};$('create-call').disabled=false;status('Selected '+selectedCallUser.name+'. Tap Call Selected User.')}});
 $('create-call').onclick=()=>action(async()=>{
