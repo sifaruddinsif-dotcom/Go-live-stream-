@@ -83,6 +83,15 @@ async function setupLiveChat(roomId){
    while(overlay.children.length>4)overlay.firstElementChild.remove();
  };
  socket.on('room:message',socket.__liveChatHandler);
+ if(socket.__liveGiftHandler)socket.off('live:gift',socket.__liveGiftHandler);
+ socket.__liveGiftHandler=gift=>{
+   if(String(gift.room_id)!==String(roomId))return;
+   const overlay=$('host-chat-overlay')||$('viewer-chat-overlay');
+   if(overlay){const line=document.createElement('div');line.className='host-chat-message';line.textContent=(gift.emoji||'🎁')+' '+String(gift.sender||'Viewer')+' sent '+String(gift.label||gift.gift_key||'a gift');overlay.appendChild(line);while(overlay.children.length>4)overlay.firstElementChild.remove();}
+   const history=$('host-gift-history');
+   if(history){if(history.textContent==='No gifts yet.')history.textContent='';const item=document.createElement('p');item.textContent=(gift.emoji||'🎁')+' '+String(gift.sender||'Viewer')+' · '+String(gift.label||gift.gift_key)+' ('+String(gift.coins)+' coins)';history.prepend(item);while(history.children.length>10)history.lastElementChild.remove();}
+ };
+ socket.on('live:gift',socket.__liveGiftHandler);
  const form=$('host-comment-form');
  if(form&&!form.dataset.bound){
    form.dataset.bound='1';
@@ -115,6 +124,7 @@ async function joinMedia(id){
    $('host-copy-room').onclick=async()=>{try{await navigator.clipboard.writeText(String(id));$('host-copy-room').textContent='✓ Copied'}catch{status('Live room number: '+id)}};
    $('host-gift').onclick=()=>{$('host-gift-panel').hidden=!$('host-gift-panel').hidden};
    $('host-viewer-count').textContent='0 viewers';
+   loadWallet().catch(()=>{});
  }
  box.scrollIntoView({behavior:'smooth',block:'center'});
  mediaClient=AgoraRTC.createClient({mode:data.mode==='rtc'?'rtc':'live',codec:'vp8'});
