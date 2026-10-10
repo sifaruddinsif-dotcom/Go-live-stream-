@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import pg from "pg";
 import { AccessToken } from "livekit-server-sdk";
-import { RtcTokenBuilder } from "agora-token";
+import { RtcTokenBuilder } from "agora-access-token";
 import Razorpay from "razorpay";
 import crypto from "node:crypto";
 import { createServer } from "node:http";
