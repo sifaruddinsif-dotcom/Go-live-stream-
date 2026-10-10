@@ -53,7 +53,7 @@ async function joinMedia(id){
  const mod=await import('https://cdn.jsdelivr.net/npm/agora-rtc-sdk-ng@4.24.1/+esm');
  const AgoraRTC=mod.default||mod;
  const box=$('media-view');
- const isHost=data.role==='host';
+ const isHost=data.role==='host' && data.mode==='live';
  const liveTitle=$('room-title')?.value.trim()||'My Live';
  box.innerHTML=isHost
  ? '<div class="host-live-ui"><div class="host-live-top"><button type="button" class="host-exit" id="host-exit" aria-label="Leave live">×</button><div class="host-title-block"><b>'+safe(liveTitle)+'</b><small>🔴 LIVE · <span id="host-viewer-count">0 viewers</span></small></div><button type="button" class="host-share" id="host-share">↗ Share</button></div><div class="host-room-strip"><span>🪙 0 coins</span><span>Room #'+safe(id)+'</span><button type="button" id="host-copy-room">▢ Copy ID</button></div><div id="media-connection-status" class="host-live-status">Connecting to live stream…</div><div id="agora-local" class="host-video"></div><div class="host-chat-overlay" id="host-chat-overlay"><div class="host-chat-message">🎉 Your live has started. Welcome viewers!</div></div><div class="host-hearts" aria-hidden="true">💗<br>💖</div><div class="host-live-bottom"><button type="button" class="host-gift" id="host-gift">🎁<small>Gift</small></button><div class="host-comment"><span>Comments appear here</span></div></div><div id="host-gift-panel" class="host-gift-panel" hidden><b>Gifts</b><p>Gift sending will be enabled after the coin wallet is connected.</p><div>🌹　💗　👑</div></div></div><div id="agora-remote" style="display:none"></div>'
