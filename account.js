@@ -27,7 +27,7 @@ $('refresh').onclick=()=>action(async()=>{
  const r=await call('/api/rooms');$('room-list').innerHTML=r.rooms.length?r.rooms.map(x=>'<div class="row"><span>'+safe(x.title)+' ('+safe(x.kind)+')</span><small>Room #'+safe(x.id)+' · '+safe(x.host)+'</small><button class="primary" data-join="'+safe(x.id)+'">Join media</button></div>').join(''):'<p>No rooms yet. Sign in and create one.</p>';status('Rooms loaded.');
 });
 $('create').onclick=()=>action(async()=>{
- if(!token)throw Error('Pehle Register ya Login karo, phir room create hoga.');const title=$('room-title').value.trim();if(!title)throw Error('Room title likho.');status('Creating room…');const r=await call('/api/rooms','POST',{title,kind:$('room-kind').value});$('room-id').value=r.room.id;status('✅ Room #'+r.room.id+' created. Ab Join media dabao.');await loadRooms();
+ if(!token)throw Error('Guest sign-in abhi ready nahi hai. Refresh karke try karo.');const title=$('room-title').value.trim();if(!title)throw Error('Live title likho.');status('Starting live stream…');const r=await call('/api/rooms','POST',{title,kind:'live'});$('room-id').value=r.room.id;$('room-id-label').textContent='Live room #'+r.room.id+' — share this number with viewers.';status('✅ Live room created. Connecting camera and microphone…');await joinMedia(r.room.id);await loadRooms();
 });
 async function loadRooms(){const r=await call('/api/rooms');$('room-list').innerHTML=r.rooms.length?r.rooms.map(x=>'<div class="row"><span>'+safe(x.title)+' ('+safe(x.kind)+')</span><small>Room #'+safe(x.id)+' · '+safe(x.host)+'</small><button class="primary" data-join="'+safe(x.id)+'">Join media</button></div>').join(''):'<p>No rooms yet.</p>'}
 $('history').onclick=()=>action(async()=>{
@@ -63,10 +63,14 @@ async function joinMedia(id){
    for(const publication of mediaRoom.localParticipant.trackPublications.values()){const track=publication.track;if(track&&(track.kind==='video'||track.kind==='audio')){const el=track.attach();el.autoplay=true;el.playsInline=true;el.style.cssText='width:100%;max-width:280px;border-radius:12px;margin:6px;background:#111';box.appendChild(el)}}
    status('Live media connected. Camera and microphone are publishing.');
  }catch(e){status('Joined room, but camera/microphone permission failed: '+e.message+'. Check browser permissions.')}
- $('leave-media').hidden=false;
+ $('leave-media').hidden=false;$('toggle-mic').disabled=false;$('toggle-camera').disabled=false;
 }
 async function leaveMedia(){if(mediaRoom){try{await mediaRoom.disconnect()}catch{}mediaRoom=null}$('media-view').innerHTML='';$('leave-media').hidden=true}
-$('leave-media').onclick=()=>action(async()=>{await leaveMedia();status('Disconnected from media room.')});
+$('leave-media').onclick=()=>action(async()=>{await leaveMedia();$('toggle-mic').disabled=true;$('toggle-camera').disabled=true;status('Live/call ended.')});
+$('create-call').onclick=()=>action(async()=>{const title=$('call-title').value.trim()||'Private 1-to-1 Call';const r=await call('/api/rooms','POST',{title,kind:'live'});$('call-room-id').value=r.room.id;$('room-id-label').textContent='Private call room #'+r.room.id+' — send this number to the other person.';status('Call room created. Connecting…');await joinMedia(r.room.id)});
+$('join-call').onclick=()=>action(async()=>{const id=$('call-room-id').value.trim();if(!/^\\d+$/.test(id))throw Error('Enter a valid call room number.');$('room-id-label').textContent='Joining call room #'+id;await joinMedia(id)});
+$('toggle-mic').onclick=()=>action(async()=>{if(!mediaRoom)throw Error('Join a live or call first.');const p=mediaRoom.localParticipant;const enabled=p.isMicrophoneEnabled;await p.setMicrophoneEnabled(!enabled);$('toggle-mic').textContent=enabled?'🎙️ Unmute Mic':'🎙️ Mute Mic';});
+$('toggle-camera').onclick=()=>action(async()=>{if(!mediaRoom)throw Error('Join a live or call first.');const p=mediaRoom.localParticipant;const enabled=p.isCameraEnabled;await p.setCameraEnabled(!enabled);$('toggle-camera').textContent=enabled?'📷 Camera On':'📷 Camera Off';});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-join]');if(b){$('room-id').value=b.dataset.join;action(()=>joinMedia(b.dataset.join))}});
 $('send').onclick=()=>action(async()=>{
  if(!token)throw Error('Please sign in first.');
