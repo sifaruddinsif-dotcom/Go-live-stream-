@@ -206,7 +206,6 @@ app.get("/api/gifts/received", auth, async (req,res) => {
     res.json({gifts:r.rows});
   } catch {res.status(500).json({error:"Could not load received gifts."});}
 });
-app.get("/api/gifts/catalog", (_req,res) => res.json({gifts:Object.entries(GIFT_CATALOG).map(([key,g])=>({key,...g}))});
 app.get("/health", async (_req, res) => {
   const mediaConfigured = Boolean(process.env.AGORA_APP_ID && process.env.AGORA_APP_CERTIFICATE);
   try { await pool.query("SELECT 1"); res.json({ ok: true, service: "go-live-stream-api", database: "connected", mediaConfigured }); }
