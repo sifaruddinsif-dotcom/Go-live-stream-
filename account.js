@@ -27,6 +27,19 @@ document.addEventListener('pointerdown',()=>{if(giftAudioContext?.state==='suspe
 function setGiftSoundButton(){
  document.querySelectorAll('.gift-sound-toggle').forEach(b=>{b.textContent=giftSoundEnabled?'🔊 Gift sound: ON':'🔇 Gift sound: OFF';b.setAttribute('aria-pressed',String(giftSoundEnabled));});
 }
+function setupPrivateCallPrivacy(){
+ const root=document.querySelector('.private-call-ui');if(!root||root.dataset.privacyReady)return;
+ root.dataset.privacyReady='1';
+ const note=document.createElement('p');note.className='private-call-privacy-note';note.textContent='🔒 Private call: screenshots and recordings are not allowed. Web browsers cannot fully block device-level capture.';
+ const controls=root.querySelector('.private-call-controls');if(controls)controls.before(note);
+ root.addEventListener('contextmenu',e=>e.preventDefault());
+ root.addEventListener('dragstart',e=>e.preventDefault());
+ const obscure=()=>root.classList.add('privacy-obscured');
+ const restore=()=>root.classList.remove('privacy-obscured');
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)obscure();else restore();});
+ window.addEventListener('pagehide',obscure);
+ window.addEventListener('pageshow',restore);
+}
 function status(s){
  let el=$('status');
  const rooms=$('rooms');
@@ -298,6 +311,7 @@ async function joinMedia(id){
  }
  $('leave-media').hidden=false;$('toggle-mic').disabled=data.role!=='host';$('toggle-camera').disabled=data.role!=='host';
  if(data.mode==='rtc'){
+   setupPrivateCallPrivacy();
    const callStatus=$('private-call-status');if(callStatus)callStatus.textContent='🔒 Encrypted room · Connected';
    let elapsed=0;clearInterval(window.__funPrivateCallTimer);
    window.__funPrivateCallTimer=setInterval(()=>{elapsed++;const t=$('private-call-timer');if(t)t.textContent=String(Math.floor(elapsed/60)).padStart(2,'0')+':'+String(elapsed%60).padStart(2,'0');},1000);
