@@ -177,7 +177,7 @@ app.get("/api/users/search", auth, async (req,res) => {
 });
 app.post("/api/calls", auth, async (req,res) => {
   const calleeId=String(req.body?.calleeId||"");
-  if(!/^\\d+$/.test(calleeId) || calleeId===String(req.user.id)) return res.status(400).json({error:"Choose another valid GO LIVE user."});
+  if(!/^\d+$/.test(calleeId) || calleeId===String(req.user.id)) return res.status(400).json({error:"Choose another valid GO LIVE user."});
   try {
     const u=await pool.query("SELECT id FROM users WHERE id=$1",[calleeId]);
     if(!u.rowCount) return res.status(404).json({error:"User not found."});
@@ -193,7 +193,7 @@ app.get("/api/calls/incoming", auth, async (req,res) => {
   } catch { res.status(500).json({error:"Could not load incoming calls."}); }
 });
 app.get("/api/calls/:id", auth, async (req,res) => {
-  if(!/^\\d+$/.test(req.params.id)) return res.status(400).json({error:"Invalid call ID."});
+  if(!/^\d+$/.test(req.params.id)) return res.status(400).json({error:"Invalid call ID."});
   try {
     const r=await pool.query("SELECT id,room_id,status,caller_id,callee_id FROM call_requests WHERE id=$1 AND (caller_id=$2 OR callee_id=$2)",[req.params.id,req.user.id]);
     if(!r.rowCount) return res.status(404).json({error:"Call not found."});
@@ -201,7 +201,7 @@ app.get("/api/calls/:id", auth, async (req,res) => {
   } catch { res.status(500).json({error:"Could not check call status."}); }
 });
 app.post("/api/calls/:id/respond", auth, async (req,res) => {
-  if(!/^\\d+$/.test(req.params.id)) return res.status(400).json({error:"Invalid call ID."});
+  if(!/^\d+$/.test(req.params.id)) return res.status(400).json({error:"Invalid call ID."});
   const decision=String(req.body?.decision||"");
   if(!["accepted","rejected"].includes(decision)) return res.status(400).json({error:"Choose accept or reject."});
   try {
@@ -211,7 +211,7 @@ app.post("/api/calls/:id/respond", auth, async (req,res) => {
   } catch { res.status(500).json({error:"Could not respond to call."}); }
 });
 app.post("/api/calls/:id/end", auth, async (req,res) => {
-  if(!/^\\d+$/.test(req.params.id)) return res.status(400).json({error:"Invalid call ID."});
+  if(!/^\d+$/.test(req.params.id)) return res.status(400).json({error:"Invalid call ID."});
   try {
     const r=await pool.query("UPDATE call_requests SET status='ended',updated_at=NOW() WHERE id=$1 AND (caller_id=$2 OR callee_id=$2) AND status IN ('ringing','accepted') RETURNING id,status",[req.params.id,req.user.id]);
     if(!r.rowCount) return res.status(404).json({error:"Call not found or already ended."});
