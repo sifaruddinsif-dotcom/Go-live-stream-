@@ -248,7 +248,7 @@ document.addEventListener('click',e=>{
  const b=e.target.closest('[data-send-gift]');
  if(b)action(async()=>{
    const roomId=$('room-id').value.trim();
-   if(!/^\\d+$/.test(roomId))throw Error('Join a live stream before sending gifts.');
+   if(!/^\d+$/.test(roomId))throw Error('Join a live stream before sending gifts.');
    b.disabled=true;
    try{
      const r=await call('/api/gifts/send','POST',{roomId,giftKey:b.dataset.sendGift});
