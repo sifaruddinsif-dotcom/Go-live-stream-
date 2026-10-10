@@ -251,13 +251,16 @@ app.post("/api/gifts/send", auth, async (req,res) => {
     await client.query("INSERT INTO wallet_accounts(user_id,balance) VALUES($1,100) ON CONFLICT(user_id) DO NOTHING",[receiverId]);
     const sender=await client.query("SELECT balance FROM wallet_accounts WHERE user_id=$1 FOR UPDATE",[req.user.id]);
     if(Number(sender.rows[0].balance)<gift.coins){await client.query("ROLLBACK");return res.status(402).json({error:"Not enough FUN coins. Use the free test coins or top up after payment setup."});}
+    // Gift split: viewer pays 100%; host receives 60%; platform retains 40%.
+    const hostCoins=Math.floor(gift.coins*0.60);
+    const platformCoins=gift.coins-hostCoins;
     await client.query("UPDATE wallet_accounts SET balance=balance-$1,updated_at=NOW() WHERE user_id=$2",[gift.coins,req.user.id]);
-    await client.query("UPDATE wallet_accounts SET balance=balance+$1,updated_at=NOW() WHERE user_id=$2",[gift.coins,receiverId]);
+    await client.query("UPDATE wallet_accounts SET balance=balance+$1,updated_at=NOW() WHERE user_id=$2",[hostCoins,receiverId]);
     const tx=await client.query("INSERT INTO live_gifts(room_id,sender_id,receiver_id,gift_key,coins) VALUES($1,$2,$3,$4,$5) RETURNING id,room_id,gift_key,coins,created_at",[roomId,req.user.id,receiverId,giftKey,gift.coins]);
-    await client.query("INSERT INTO wallet_transactions(user_id,amount,kind,reference) VALUES($1,$2,'gift_sent',$3),($4,$5,'gift_received',$3)",[req.user.id,-gift.coins,String(tx.rows[0].id),receiverId,gift.coins]);
+    await client.query("INSERT INTO wallet_transactions(user_id,amount,kind,reference) VALUES($1,$2,'gift_sent',$3),($4,$5,'gift_received',$3)",[req.user.id,-gift.coins,String(tx.rows[0].id),receiverId,hostCoins]);
     const balances=await client.query("SELECT balance FROM wallet_accounts WHERE user_id=$1",[req.user.id]);
     await client.query("COMMIT");
-    const payload={...tx.rows[0],sender:req.user.username,...gift};
+    const payload={...tx.rows[0],sender:req.user.username,...gift,coins:gift.coins,hostCoins,platformCoins,hostSharePercent:60,platformSharePercent:40};
     io.to("live:"+roomId).emit("live:gift",payload);
     res.status(201).json({gift:payload,balance:Number(balances.rows[0].balance)});
   } catch(e) {
