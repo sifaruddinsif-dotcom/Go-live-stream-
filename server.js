@@ -223,7 +223,7 @@ app.post("/api/live/token", auth, async (req,res) => {
   if (!roomName || roomName.length>100 || !/^[a-zA-Z0-9_-]+$/.test(roomName)) return res.status(400).json({error:"Room name is invalid."});
   if (!process.env.LIVEKIT_URL || !process.env.LIVEKIT_API_KEY || !process.env.LIVEKIT_API_SECRET) return res.status(503).json({error:"LiveKit is not configured yet. Set LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET."});
   try {
-    const match = roomName.match(/^room-(\\d+)$/);
+    const match = roomName.match(/^room-(\d+)$/);
     if (!match) return res.status(400).json({error:"Room name is invalid."});
     const roomId = match[1];
     const roomResult = await pool.query("SELECT id,kind,owner_id FROM rooms WHERE id=$1", [roomId]);
