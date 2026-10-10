@@ -53,7 +53,7 @@ async function joinMedia(id){
  const mod=await import('https://cdn.jsdelivr.net/npm/agora-rtc-sdk-ng@4.24.1/+esm');
  const AgoraRTC=mod.default||mod;
  const box=$('media-view');
- box.innerHTML='<div class="note">Connecting to '+safe(data.mode==='rtc'?'1-to-1 call':'live stream')+'…</div><div id="agora-local" style="display:flex;flex-wrap:wrap;gap:8px"></div><div id="agora-remote" style="display:flex;flex-wrap:wrap;gap:8px"></div>';
+ box.innerHTML='<div id="media-connection-status" class="note" style="margin-bottom:10px">Connecting to '+safe(data.mode==='rtc'?'1-to-1 call':'live stream')+'…</div><div id="agora-local" style="display:block;width:100%;min-height:220px;height:42vh;max-height:420px;border-radius:14px;background:#080611;overflow:hidden"></div><div id="agora-remote" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>';
  $('room-id').value=String(id);$('room-id-label').textContent='Connecting to room #'+id+'…';box.scrollIntoView({behavior:'smooth',block:'center'});
  mediaClient=AgoraRTC.createClient({mode:data.mode==='rtc'?'rtc':'live',codec:'vp8'});
  mediaClient.on('user-published',async(user,mediaType)=>{
@@ -86,8 +86,12 @@ async function joinMedia(id){
      localTracks=[micTrack,cameraTrack];
      cameraTrack.play('agora-local');
      await mediaClient.publish([micTrack,cameraTrack]);
+     const connectionStatus=$('media-connection-status');
+     if(connectionStatus)connectionStatus.textContent='🔴 YOU ARE LIVE — camera and microphone connected';
      status('✅ Agora connected. Your camera and microphone are live.');
    }else{
+     const connectionStatus=$('media-connection-status');
+     if(connectionStatus)connectionStatus.textContent='Connected. Waiting for the host video…';
      status('✅ Joined live stream. Waiting for the host video…');
    }
  }catch(e){
