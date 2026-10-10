@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import pg from "pg";
 import { AccessToken } from "livekit-server-sdk";
-import { RtcTokenBuilder } from "agora-access-token";
+import { RtcTokenBuilder, RtcRole } from "agora-access-token";
 import Razorpay from "razorpay";
 import crypto from "node:crypto";
 import { createServer } from "node:http";
@@ -240,10 +240,9 @@ app.post("/api/live/token", auth, async (req,res) => {
     const uid=Number(req.user.id);
     if (!Number.isSafeInteger(uid) || uid<1 || uid>2147483647) return res.status(400).json({error:"User ID is outside Agora's supported range."});
     const isCall=Boolean(callResult.rowCount);
-    const role=(isCall || String(roomResult.rows[0].owner_id)===String(req.user.id)) ? 1 : 2;
-    const expireAt=Math.floor(Date.now()/1000)+3600;
-    const rtcToken=RtcTokenBuilder.buildTokenWithUid(appId,certificate,roomName,uid,role,expireAt);
-    res.json({appId,channelName:roomName,token:rtcToken,uid,role:role===1?"host":"audience",mode:isCall?"rtc":"live"});
+    const isHost=isCall || String(roomResult.rows[0].owner_id)===String(req.user.id);
+    const rtcToken=RtcTokenBuilder.buildTokenWithUid(appId,certificate,roomName,uid,RtcRole.PUBLISHER,3600,3600);
+    res.json({appId,channelName:roomName,token:rtcToken,uid,role:isHost?"host":"audience",mode:isCall?"rtc":"live"});
   } catch (e) {
     console.error("Agora token generation failed:",e?.message||"unknown error");
     res.status(500).json({error:"Could not create Agora media token. Check Agora App ID and Certificate configuration."});
