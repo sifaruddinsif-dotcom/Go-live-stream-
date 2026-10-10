@@ -237,6 +237,27 @@ document.addEventListener('click',e=>{
  const accept=e.target.closest('[data-accept-call]');if(accept)action(async()=>{const id=accept.dataset.acceptCall,room=accept.dataset.roomId;await call('/api/calls/'+id+'/respond','POST',{decision:'accepted'});activeCallId=id;$('call-room-id').value=room;$('room-id-label').textContent='Connecting to accepted 1-to-1 call…';await joinMedia(room)});
  const reject=e.target.closest('[data-reject-call]');if(reject)action(async()=>{await call('/api/calls/'+reject.dataset.rejectCall+'/respond','POST',{decision:'rejected'});await pollIncomingCalls();status('Call rejected.')});
 });
+async function loadWallet(){
+ const r=await call('/api/wallet');
+ if($('host-wallet-balance'))$('host-wallet-balance').textContent=String(r.balance);
+ if($('viewer-wallet-balance'))$('viewer-wallet-balance').textContent=String(r.balance);
+ return r.balance;
+}
+document.addEventListener('click',e=>{
+ if(e.target.closest('#viewer-gift-open')){$('viewer-gift-panel').hidden=!$('viewer-gift-panel').hidden;loadWallet().catch(err=>status(err.message));}
+ const b=e.target.closest('[data-send-gift]');
+ if(b)action(async()=>{
+   const roomId=$('room-id').value.trim();
+   if(!/^\\d+$/.test(roomId))throw Error('Join a live stream before sending gifts.');
+   b.disabled=true;
+   try{
+     const r=await call('/api/gifts/send','POST',{roomId,giftKey:b.dataset.sendGift});
+     if($('viewer-wallet-balance'))$('viewer-wallet-balance').textContent=String(r.balance);
+     status('🎁 '+r.gift.label+' sent! Remaining balance: '+r.balance+' coins.');
+     $('viewer-gift-panel').hidden=true;
+   }finally{b.disabled=false}
+ });
+});
 $('join-call').onclick=()=>action(async()=>{const id=$('call-room-id').value.trim();if(!/^\d+$/.test(id))throw Error('Enter a valid call room number.');$('room-id-label').textContent='Joining call room #'+id;await joinMedia(id)});
 $('toggle-mic').onclick=()=>action(async()=>{if(!mediaClient||!localTracks[0])throw Error('Join your live or call first.');const track=localTracks[0];const enabled=track.enabled;track.setEnabled(!enabled);$('toggle-mic').textContent=enabled?'🎙️ Unmute Mic':'🎙️ Mute Mic';});
 $('toggle-camera').onclick=()=>action(async()=>{if(!mediaClient||!localTracks[1])throw Error('Join your live or call first.');const track=localTracks[1];const enabled=track.enabled;track.setEnabled(!enabled);$('toggle-camera').textContent=enabled?'📷 Camera On':'📷 Camera Off';});
