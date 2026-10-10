@@ -76,6 +76,17 @@ $('send').onclick=()=>action(async()=>{
  const sent=await new Promise(resolve=>socket.emit('room:message',{roomId:id,body},resolve));if(sent?.error)throw Error(sent.error);
  $('message').value='';const history=await call('/api/rooms/'+id+'/messages');$('messages').innerHTML=history.messages.map(m=>'<div class="chat"><b>'+safe(m.username)+':</b> '+safe(m.body)+'</div>').join('');status('Message sent.');
 });
+async function enterGuestMode(){
+ try{
+  const r=await call('/api/auth/guest','POST',{});
+  token=r.token;sessionStorage.setItem('golive_token',token);accountLabel(r.user);
+  const hero=document.querySelector('.login-hero'),panel=document.querySelector('.login-panel'),rooms=$('rooms'),chat=$('room-chat');
+  if(hero)hero.style.display='none';if(panel)panel.style.display='none';if(rooms)rooms.style.display='block';if(chat)chat.style.display='block';
+  status('Welcome to GO LIVE! You are in guest mode. Your GO LIVE ID: GLS'+String(r.user.id).padStart(8,'0'));
+  await loadRooms();
+ }catch(e){status('Guest access could not start: '+(e.message||'Please refresh and try again.'))}
+}
 if(token&&endpoint)action(async()=>{const r=await call('/api/me');accountLabel(r.user);});
-action(async()=>{const r=await call('/health');status(r.ok&&r.database==='connected'?'API connected; database connected.':'API health check failed.')});
+if(!token)enterGuestMode();
+action(async()=>{const r=await call('/health');if(!token)status(r.ok&&r.database==='connected'?'Starting GO LIVE guest mode…':'API health check failed.');});
 })();
