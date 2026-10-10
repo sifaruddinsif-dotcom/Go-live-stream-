@@ -96,17 +96,27 @@ app.get("/health", async (_req, res) => {
 });
 app.post("/api/auth/register", async (req, res) => {
   try {
-    const username = String(req.body?.username || "").trim();
     const email = String(req.body?.email || "").trim().toLowerCase();
     const password = String(req.body?.password || "");
-    if (!/^[a-zA-Z0-9_]{3,40}$/.test(username)) return res.status(400).json({ error: "Username must be 3–40 letters, numbers or underscores." });
+    const requestedUsername = String(req.body?.username || "").trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return res.status(400).json({ error: "Enter a valid email address." });
     if (password.length < 10 || password.length > 128) return res.status(400).json({ error: "Password must be at least 10 characters." });
+    let username = requestedUsername;
+    if (username && !/^[a-zA-Z0-9_]{3,40}$/.test(username)) return res.status(400).json({ error: "Username must be 3–40 letters, numbers or underscores." });
+    if (!username) {
+      const base = (email.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/^_+|_+$/g, "").slice(0, 28) || "golive").padEnd(3, "1");
+      username = base;
+      for (let suffix = 1; ; suffix++) {
+        const found = await pool.query("SELECT 1 FROM users WHERE username=$1", [username]);
+        if (!found.rowCount) break;
+        username = (base.slice(0, 34) + "_" + suffix).slice(0, 40);
+      }
+    }
     const hash = await bcrypt.hash(password, 12);
     const result = await pool.query("INSERT INTO users(username,email,password_hash) VALUES($1,$2,$3) RETURNING id,username,email,bio,created_at", [username,email,hash]);
     res.status(201).json({ user: result.rows[0], token: tokenFor(result.rows[0]) });
   } catch (e) {
-    if (e.code === "23505") return res.status(409).json({ error: "Username or email already registered." });
+    if (e.code === "23505") return res.status(409).json({ error: "This email or username is already registered. Please log in instead." });
     res.status(500).json({ error: "Could not create account." });
   }
 });
