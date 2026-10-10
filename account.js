@@ -73,14 +73,19 @@ async function setupLiveChat(roomId){
  socket.on('live:count',socket.__liveCountHandler);
  if(socket.__liveChatHandler)socket.off('room:message',socket.__liveChatHandler);
  socket.__liveChatHandler=message=>{
-   if(String(message.room_id)!==String(roomId))return;
-   const overlay=$('host-chat-overlay')||$('viewer-chat-overlay');
-   if(!overlay)return;
-   const line=document.createElement('div');line.className='host-chat-message';
-   const name=document.createElement('b');name.textContent=String(message.username||'User')+': ';
-   const body=document.createElement('span');body.textContent=String(message.body||'');
-   line.append(name,body);overlay.appendChild(line);
-   while(overlay.children.length>4)overlay.firstElementChild.remove();
+   const messageRoom=String(message.room_id??message.roomId??'');
+   if(messageRoom!==String(roomId))return;
+   const overlays=[$('host-chat-overlay'),$('viewer-chat-overlay')].filter(Boolean);
+   overlays.forEach(overlay=>{
+     const id=String(message.id??'');
+     if(id&&overlay.querySelector('[data-message-id="'+CSS.escape(id)+'"]'))return;
+     const line=document.createElement('div');line.className='host-chat-message';
+     if(id)line.dataset.messageId=id;
+     const name=document.createElement('b');name.textContent=String(message.username||'User')+': ';
+     const body=document.createElement('span');body.textContent=String(message.body||'');
+     line.append(name,body);overlay.appendChild(line);
+     while(overlay.children.length>4)overlay.firstElementChild.remove();
+   });
  };
  socket.on('room:message',socket.__liveChatHandler);
  if(socket.__liveGiftHandler)socket.off('live:gift',socket.__liveGiftHandler);
@@ -104,11 +109,11 @@ document.addEventListener('submit',async e=>{
  const send=form.querySelector('button[type="submit"]');
  const body=(input?.value||'').trim();
  if(!body)return;
+ const roomId=$('room-id')?.value.trim()||socket?.__activeLiveRoom||'';
  if(!socket||!socket.connected){
    status('Comment not sent: chat is reconnecting. Your live is still running.');
    return;
  }
- const roomId=$('room-id').value.trim();
  if(!/^\d+$/.test(roomId)){
    status('Comment not sent: live room ID is missing.');
    return;
@@ -120,6 +125,11 @@ document.addEventListener('submit',async e=>{
      socket.emit('room:message',{roomId,body},result=>{clearTimeout(timer);resolve(result)});
    });
    if(result?.error)throw Error(result.error);
+   if(result?.message){
+     const sent=result.message;
+     // Ensure the sender sees the comment immediately; the room broadcast is de-duplicated by message ID.
+     if(socket.__liveChatHandler)socket.__liveChatHandler(sent);
+   }
    input.value='';
  }catch(err){
    status('Comment not sent: '+(err.message||'Try again.')+'. Your live should remain active.');
