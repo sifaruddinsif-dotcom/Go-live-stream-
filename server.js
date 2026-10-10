@@ -134,32 +134,52 @@ io.use((socket, next) => {
   } catch { next(new Error("Invalid session")); }
 });
 io.on("connection", socket => {
+  async function broadcastLiveViewers(roomId) {
+    const liveRoom = "live:" + String(roomId);
+    const roomResult = await pool.query("SELECT owner_id FROM rooms WHERE id=$1 AND kind='live'", [roomId]);
+    if (!roomResult.rowCount) return;
+    const ownerId = String(roomResult.rows[0].owner_id || "");
+    const members = await io.in(liveRoom).fetchSockets();
+    const viewers = members.filter(member => String(member.user?.sub || "") !== ownerId).map(member => {
+      const raw = String(member.user?.username || "Viewer");
+      return { id: String(member.user?.sub || member.id), username: /^guest_[a-f0-9]+$/i.test(raw) ? "Guest " + raw.slice(-4).toUpperCase() : raw };
+    });
+    io.to(liveRoom).emit("live:viewers", { roomId: String(roomId), viewers, count: members.length });
+    io.to(liveRoom).emit("live:count", { roomId: String(roomId), count: members.length });
+  }
   socket.on("live:join", async ({ roomId } = {}, done = () => {}) => {
     try {
       if (!/^\d+$/.test(String(roomId || ""))) return done({ error: "Invalid live room." });
-      const r = await pool.query("SELECT id,kind FROM rooms WHERE id=$1", [roomId]);
+      const r = await pool.query("SELECT id,kind,owner_id FROM rooms WHERE id=$1", [roomId]);
       if (!r.rowCount || r.rows[0].kind !== "live") return done({ error: "Live room not found." });
       const liveRoom = "live:" + roomId;
+      const wasAlreadyInRoom = socket.rooms.has(liveRoom);
       await socket.join(liveRoom);
+      await broadcastLiveViewers(roomId);
+      if (!wasAlreadyInRoom && String(r.rows[0].owner_id || "") !== String(socket.user?.sub || "")) {
+        const raw = String(socket.user?.username || "Viewer");
+        const username = /^guest_[a-f0-9]+$/i.test(raw) ? "Guest " + raw.slice(-4).toUpperCase() : raw;
+        io.to(liveRoom).emit("live:viewer-enter", { roomId: String(roomId), username, userId: String(socket.user?.sub || "") });
+      }
       const count = (await io.in(liveRoom).fetchSockets()).length;
-      io.to(liveRoom).emit("live:count", { roomId: String(roomId), count });
       done({ ok: true, count });
-    } catch { done({ error: "Could not join live room." }); }
+    } catch (e) { console.error("Live viewer presence update failed:", e?.message || "unknown error"); done({ error: "Could not join live room." }); }
   });
   socket.on("live:leave", async ({ roomId } = {}, done = () => {}) => {
-    const liveRoom = "live:" + String(roomId || "");
-    await socket.leave(liveRoom);
-    const count = (await io.in(liveRoom).fetchSockets()).length;
-    io.to(liveRoom).emit("live:count", { roomId: String(roomId), count });
-    done({ ok: true, count });
+    try {
+      const liveRoom = "live:" + String(roomId || "");
+      await socket.leave(liveRoom);
+      await broadcastLiveViewers(roomId);
+      const count = (await io.in(liveRoom).fetchSockets()).length;
+      done({ ok: true, count });
+    } catch { done({ error: "Could not leave live room cleanly." }); }
   });
   socket.on("disconnecting", async () => {
     for (const roomName of socket.rooms) {
       if (roomName.startsWith("live:")) {
         const roomId = roomName.slice(5);
         setTimeout(async () => {
-          const count = (await io.in(roomName).fetchSockets()).length;
-          io.to(roomName).emit("live:count", { roomId, count });
+          try { await broadcastLiveViewers(roomId); } catch (e) { console.error("Live viewer disconnect update failed:", e?.message || "unknown error"); }
         }, 0);
       }
     }
