@@ -419,6 +419,52 @@ app.post("/api/payments/verify", auth, async (req,res) => {
   } catch(e) {await client.query("ROLLBACK").catch(()=>{});console.error("Payment verification failed:",e?.message||"unknown error");res.status(500).json({error:"Could not credit verified payment."});}
   finally {client.release();}
 });
+app.post("/api/users/:id/follow", auth, async (req,res) => {
+  const target=String(req.params.id||"");
+  if(!/^\d+$/.test(target)||target===String(req.user.id)) return res.status(400).json({error:"Choose another valid user."});
+  try {
+    const user=await pool.query("SELECT id FROM users WHERE id=$1",[target]);
+    if(!user.rowCount)return res.status(404).json({error:"User not found."});
+    const existing=await pool.query("SELECT 1 FROM follows WHERE follower_id=$1 AND following_id=$2",[req.user.id,target]);
+    if(existing.rowCount) await pool.query("DELETE FROM follows WHERE follower_id=$1 AND following_id=$2",[req.user.id,target]);
+    else await pool.query("INSERT INTO follows(follower_id,following_id) VALUES($1,$2) ON CONFLICT DO NOTHING",[req.user.id,target]);
+    const count=await pool.query("SELECT COUNT(*)::int AS count FROM follows WHERE following_id=$1",[target]);
+    res.json({following:!existing.rowCount,followers:count.rows[0].count});
+  } catch {res.status(500).json({error:"Could not update follow."});}
+});
+app.get("/api/users/:id/follow-status", auth, async (req,res) => {
+  if(!/^\d+$/.test(String(req.params.id||"")))return res.status(400).json({error:"Invalid user."});
+  try {
+    const [f,c]=await Promise.all([
+      pool.query("SELECT 1 FROM follows WHERE follower_id=$1 AND following_id=$2",[req.user.id,req.params.id]),
+      pool.query("SELECT COUNT(*)::int AS count FROM follows WHERE following_id=$1",[req.params.id])
+    ]);
+    res.json({following:Boolean(f.rowCount),followers:c.rows[0].count});
+  } catch {res.status(500).json({error:"Could not load follow status."});}
+});
+app.post("/api/live/report", auth, async (req,res) => {
+  const roomId=String(req.body?.roomId||"");
+  const reason=String(req.body?.reason||"").trim().slice(0,80);
+  const details=String(req.body?.details||"").trim().slice(0,500);
+  if(!/^\d+$/.test(roomId)||!["Harassment","Nudity or sexual content","Violence","Spam or scam","Underage safety","Other"].includes(reason))return res.status(400).json({error:"Choose a valid live room and report reason."});
+  try {
+    const room=await pool.query("SELECT id FROM rooms WHERE id=$1 AND kind='live'",[roomId]);
+    if(!room.rowCount)return res.status(404).json({error:"Live room not found."});
+    const existing=await pool.query("SELECT 1 FROM live_reports WHERE room_id=$1 AND reporter_id=$2 AND created_at>NOW()-INTERVAL '10 minutes'",[roomId,req.user.id]);
+    if(existing.rowCount)return res.status(429).json({error:"You already reported this live recently."});
+    await pool.query("INSERT INTO live_reports(room_id,reporter_id,reason,details) VALUES($1,$2,$3,$4)",[roomId,req.user.id,reason,details]);
+    res.status(201).json({ok:true,message:"Report submitted for review. Thank you."});
+  } catch {res.status(500).json({error:"Could not submit report."});}
+});
+app.get("/api/rankings/weekly", async (_req,res) => {
+  try {
+    const r=await pool.query(\`SELECT u.id,u.username,COALESCE(SUM(g.coins),0)::bigint AS coins,COUNT(g.id)::int AS gifts
+      FROM users u LEFT JOIN live_gifts g ON g.receiver_id=u.id AND g.created_at>=NOW()-INTERVAL '7 days'
+      GROUP BY u.id,u.username ORDER BY coins DESC,gifts DESC,u.username ASC LIMIT 20\`);
+    res.json({period:"last_7_days",rankings:r.rows.map((u,i)=>({...u,rank:i+1,coins:Number(u.coins)}))});
+  } catch {res.status(500).json({error:"Could not load weekly rankings."});}
+});
+
 app.get("/api/rooms", async (_req,res) => {
   try { const r=await pool.query("SELECT r.id,r.title,r.kind,r.created_at,u.username AS host FROM rooms r JOIN users u ON u.id=r.owner_id ORDER BY r.created_at DESC LIMIT 100"); res.json({ rooms:r.rows }); }
   catch { res.status(500).json({ error:"Could not load rooms." }); }
