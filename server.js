@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import pg from "pg";
 import { AccessToken } from "livekit-server-sdk";
+import { RtcTokenBuilder } from "agora-token";
 import Razorpay from "razorpay";
 import crypto from "node:crypto";
 import { createServer } from "node:http";
@@ -101,7 +102,7 @@ io.on("connection", socket => {
   });
 });
 app.get("/health", async (_req, res) => {
-  const mediaConfigured = Boolean(process.env.LIVEKIT_URL && process.env.LIVEKIT_API_KEY && process.env.LIVEKIT_API_SECRET);
+  const mediaConfigured = Boolean(process.env.AGORA_APP_ID && process.env.AGORA_APP_CERTIFICATE);
   try { await pool.query("SELECT 1"); res.json({ ok: true, service: "go-live-stream-api", database: "connected", mediaConfigured }); }
   catch { res.status(503).json({ ok: false, database: "unavailable", mediaConfigured }); }
 });
@@ -221,27 +222,32 @@ app.post("/api/calls/:id/end", auth, async (req,res) => {
 app.post("/api/live/token", auth, async (req,res) => {
   const roomName=String(req.body?.roomName||"").trim();
   if (!roomName || roomName.length>100 || !/^[a-zA-Z0-9_-]+$/.test(roomName)) return res.status(400).json({error:"Room name is invalid."});
-  if (!process.env.LIVEKIT_URL || !process.env.LIVEKIT_API_KEY || !process.env.LIVEKIT_API_SECRET) return res.status(503).json({error:"LiveKit is not configured yet. Set LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET."});
+  const appId=process.env.AGORA_APP_ID;
+  const certificate=process.env.AGORA_APP_CERTIFICATE;
+  if (!appId || !certificate) return res.status(503).json({error:"Agora is not configured yet. Add AGORA_APP_ID and AGORA_APP_CERTIFICATE to the backend environment."});
   try {
-    const match = roomName.match(/^room-(\d+)$/);
+    const match=roomName.match(/^room-(\\d+)$/);
     if (!match) return res.status(400).json({error:"Room name is invalid."});
-    const roomId = match[1];
-    const roomResult = await pool.query("SELECT id,kind,owner_id FROM rooms WHERE id=$1", [roomId]);
+    const roomId=match[1];
+    const roomResult=await pool.query("SELECT id,kind,owner_id FROM rooms WHERE id=$1",[roomId]);
     if (!roomResult.rowCount) return res.status(404).json({error:"Live room not found."});
-    // Call rooms are private: only caller/callee can join, and only after acceptance.
-    const callResult = await pool.query("SELECT caller_id,callee_id,status FROM call_requests WHERE room_id=$1 ORDER BY id DESC LIMIT 1", [roomId]);
+    const callResult=await pool.query("SELECT caller_id,callee_id,status FROM call_requests WHERE room_id=$1 ORDER BY id DESC LIMIT 1",[roomId]);
     if (callResult.rowCount) {
-      const activeCall = callResult.rows[0];
-      if (!["ringing","accepted"].includes(activeCall.status)) return res.status(410).json({error:"This call has ended."});
-      if (![String(activeCall.caller_id), String(activeCall.callee_id)].includes(String(req.user.id))) {
-        return res.status(403).json({error:"This one-to-one call is private."});
-      }
-      if (activeCall.status !== "accepted") return res.status(409).json({error:"The other user must accept the call first."});
+      const activeCall=callResult.rows[0];
+      if (activeCall.status!=="accepted") return res.status(410).json({error:"This call is not active or has ended."});
+      if (![String(activeCall.caller_id),String(activeCall.callee_id)].includes(String(req.user.id))) return res.status(403).json({error:"This one-to-one call is private."});
     }
-    const token=new AccessToken(process.env.LIVEKIT_API_KEY,process.env.LIVEKIT_API_SECRET,{identity:String(req.user.id),name:req.user.username,ttl:"1h"});
-    token.addGrant({roomJoin:true,room:roomName,canPublish:true,canSubscribe:true,canPublishData:true});
-    res.json({url:process.env.LIVEKIT_URL,token:await token.toJwt(),roomName});
-  } catch { res.status(500).json({error:"Could not create live session."}); }
+    const uid=Number(req.user.id);
+    if (!Number.isSafeInteger(uid) || uid<1 || uid>2147483647) return res.status(400).json({error:"User ID is outside Agora's supported range."});
+    const isCall=Boolean(callResult.rowCount);
+    const role=(isCall || String(roomResult.rows[0].owner_id)===String(req.user.id)) ? 1 : 2;
+    const expireAt=Math.floor(Date.now()/1000)+3600;
+    const rtcToken=RtcTokenBuilder.buildTokenWithUid(appId,certificate,roomName,uid,role,expireAt);
+    res.json({appId,channelName:roomName,token:rtcToken,uid,role:role===1?"host":"audience",mode:isCall?"rtc":"live"});
+  } catch (e) {
+    console.error("Agora token generation failed:",e?.message||"unknown error");
+    res.status(500).json({error:"Could not create Agora media token. Check Agora App ID and Certificate configuration."});
+  }
 });
 app.post("/api/payments/order", auth, async (req,res) => {
   const amount=Number(req.body?.amountPaise);
