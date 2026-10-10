@@ -101,8 +101,8 @@ app.post("/api/auth/register", async (req, res) => {
     const requestedUsername = String(req.body?.username || "").trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return res.status(400).json({ error: "Enter a valid email address." });
     if (password.length < 10 || password.length > 128) return res.status(400).json({ error: "Password must be at least 10 characters." });
-    let username = requestedUsername;
-    if (username && !/^[a-zA-Z0-9_]{3,40}$/.test(username)) return res.status(400).json({ error: "Username must be 3–40 letters, numbers or underscores." });
+    // Usernames are optional. If the supplied value is not valid, safely generate one from the email.
+    let username = requestedUsername && /^[a-zA-Z0-9_]{3,40}$/.test(requestedUsername) ? requestedUsername : "";
     if (!username) {
       const base = (email.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/^_+|_+$/g, "").slice(0, 28) || "golive").padEnd(3, "1");
       username = base;
