@@ -31,13 +31,13 @@ let h=e.target.closest('[data-host]');if(h){window.host=h.dataset.host;render('L
 let g=e.target.closest('[data-gift]');if(g){let n=+g.dataset.gift;if(state.coins<n){toast('Not enough demo coins.');return}state.coins-=n;state.sentGifts++;save();toast('Gift sent in demo! '+n+' coins used.');return}
 let pack=e.target.closest('[data-package]');if(pack){toast('Payment gateway not connected. No money charged.');return}
 let a=e.target.closest('[data-action]')?.dataset.action;
-if(a==='go'){window.host='Your Live';render('Live');toast('Preview only: live broadcast provider not connected.')}
+if(a==='go'){window.location.href='account.html#rooms'}
 else if(a==='recharge')toast('Recharge disabled until secure payment gateway is connected.')
 else if(a==='create'){window.location.href='account.html#rooms'}
 else if(a==='chat'){let i=document.querySelector('#say');if(i&&i.value.trim()){let host=window.host||'Your Live';state.chat[host]=state.chat[host]||['Welcome to the live chat 👋'];state.chat[host].push((state.user.name||'You')+': '+i.value.trim());save();render('Live');document.querySelector('#chat-list')?.lastElementChild?.scrollIntoView({block:'nearest'});}}
 else if(a==='edit'){let n=prompt('Enter your display name:',state.user.name||'Riya');if(n&&n.trim()){state.user.name=n.trim().slice(0,40);let bio=prompt('Enter a short bio:',state.user.bio||'Live • Connect • Enjoy');if(bio!==null)state.user.bio=bio.trim().slice(0,100);save();render('Profile');toast('Demo profile saved on this device.');}}
 else if(a)toast('This feature requires production backend setup.');
-else if(e.target.closest('[data-room]'))toast('Voice room demo: audio server not connected yet.')
+else if(e.target.closest('[data-room]')){window.location.href='account.html#rooms'}
 else if(e.target.closest('[data-row]')){let label=e.target.closest('[data-row]').innerText;toast(label+' — account/backend integration pending.')}
 });
 render();
