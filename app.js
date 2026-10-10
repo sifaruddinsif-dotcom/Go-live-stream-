@@ -33,7 +33,7 @@ let pack=e.target.closest('[data-package]');if(pack){toast('Payment gateway not 
 let a=e.target.closest('[data-action]')?.dataset.action;
 if(a==='go'){window.host='Your Live';render('Live');toast('Preview only: live broadcast provider not connected.')}
 else if(a==='recharge')toast('Recharge disabled until secure payment gateway is connected.')
-else if(a==='create')toast('Party room creation requires a live audio server.')
+else if(a==='create'){window.location.href='account.html#rooms'}
 else if(a==='chat'){let i=document.querySelector('#say');if(i&&i.value.trim()){let host=window.host||'Your Live';state.chat[host]=state.chat[host]||['Welcome to the live chat 👋'];state.chat[host].push((state.user.name||'You')+': '+i.value.trim());save();render('Live');document.querySelector('#chat-list')?.lastElementChild?.scrollIntoView({block:'nearest'});}}
 else if(a==='edit'){let n=prompt('Enter your display name:',state.user.name||'Riya');if(n&&n.trim()){state.user.name=n.trim().slice(0,40);let bio=prompt('Enter a short bio:',state.user.bio||'Live • Connect • Enjoy');if(bio!==null)state.user.bio=bio.trim().slice(0,100);save();render('Profile');toast('Demo profile saved on this device.');}}
 else if(a)toast('This feature requires production backend setup.');
