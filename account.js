@@ -5,6 +5,30 @@ let endpoint=localStorage.getItem('golive_api_endpoint')||'https://go-live-strea
 let token=sessionStorage.getItem('golive_token')||'';
 let mediaClient=null,localTracks=[],socket=null,selectedCallUser=null,activeCallId=null,incomingPoll=null,AgoraRTCRef=null,screenTrack=null,musicTrack=null,musicElement=null,musicContext=null,musicObjectUrl=null,currentHostUserId=null,beautyIndex=0,effectIndex=0;
 
+let giftSoundEnabled=localStorage.getItem('fun_live_gift_sound')!=='off';
+let giftAudioContext=null;
+function playGiftSound(kind='chime'){
+ if(!giftSoundEnabled)return;
+ try{
+   const Ctx=window.AudioContext||window.webkitAudioContext;if(!Ctx)return;
+   giftAudioContext=giftAudioContext||new Ctx();
+   if(giftAudioContext.state==='suspended')giftAudioContext.resume().catch(()=>{});
+   const ctx=giftAudioContext;const now=ctx.currentTime;
+   const notes=kind==='fanfare'?[523.25,659.25,783.99,1046.5]:kind==='sparkle'?[880,1174.66,1567.98]:kind==='pop'?[440,660]:[659.25,880,1174.66];
+   notes.forEach((freq,i)=>{
+     const osc=ctx.createOscillator(),gain=ctx.createGain();
+     osc.type=kind==='fanfare'?'triangle':'sine';osc.frequency.setValueAtTime(freq,now+i*.105);
+     gain.gain.setValueAtTime(.0001,now+i*.105);gain.gain.exponentialRampToValueAtTime(.12,now+i*.105+.018);gain.gain.exponentialRampToValueAtTime(.0001,now+i*.105+.24);
+     osc.connect(gain);gain.connect(ctx.destination);osc.start(now+i*.105);osc.stop(now+i*.105+.26);
+   });
+ }catch(e){/* Sound is optional; gift sending must continue if audio is unavailable. */}
+}
+document.addEventListener('pointerdown',()=>{if(giftAudioContext?.state==='suspended')giftAudioContext.resume().catch(()=>{});},{passive:true});
+function setGiftSoundButton(){
+ const b=$('gift-sound-toggle');if(!b)return;
+ b.textContent=giftSoundEnabled?'🔊 Gift sound: ON':'🔇 Gift sound: OFF';
+ b.setAttribute('aria-pressed',String(giftSoundEnabled));
+}
 function status(s){
  let el=$('status');
  const rooms=$('rooms');
@@ -125,6 +149,7 @@ async function setupLiveChat(roomId){
    const history=$('host-gift-history');
    if(history){if(history.textContent==='No gifts yet.')history.textContent='';const item=document.createElement('p');item.textContent=(gift.emoji||'🎁')+' '+String(gift.sender||'Viewer')+' · '+String(gift.label||gift.gift_key)+' ('+String(gift.coins)+' coins)';history.prepend(item);while(history.children.length>10)history.lastElementChild.remove();}
    const liveBox=document.querySelector('.host-live-ui,.live-viewer-ui');if(liveBox){const burst=document.createElement('div');burst.className='gift-burst';burst.textContent=gift.emoji||'🎁';liveBox.appendChild(burst);setTimeout(()=>burst.remove(),1600);}
+   playGiftSound(gift.sound||((Number(gift.coins)||0)>=500?'fanfare':'chime'));
  };
  socket.on('live:gift',socket.__liveGiftHandler);
 }
@@ -212,13 +237,14 @@ async function joinMedia(id){
  const liveTitle=$('room-title')?.value.trim()||'My Live';
  box.innerHTML=isHost
  ? '<div class="host-live-ui"><div class="host-live-top"><button type="button" class="host-exit" id="host-exit" aria-label="Leave live">×</button><div class="host-title-block"><b>'+safe(liveTitle)+'</b><small>🔴 LIVE · <span id="host-viewer-count">0 viewers</span></small></div><button type="button" class="host-share" id="host-share">↗ Share</button></div><div class="host-room-strip"><span>🪙 <b id="host-wallet-balance">100</b> coins</span><span>Room #'+safe(id)+'</span><button type="button" id="host-copy-room">▢ Copy ID</button></div><div id="media-connection-status" class="host-live-status">Connecting to live stream…</div><div class="host-feature-bar"><button type="button" id="flip-camera">🔄 Flip</button><button type="button" id="beauty-mode">✨ Beauty</button><button type="button" id="live-effects">🎭 Effects</button><button type="button" id="screen-share">🖥️ Share Screen</button><button type="button" id="live-music">🎵 Music</button><button type="button" id="report-live">🚩 Report</button><input id="live-music-file" type="file" accept="audio/*" hidden></div><div id="agora-local" class="host-video"></div><div class="host-chat-overlay" id="host-chat-overlay"><div class="host-chat-message">🎉 Your live has started. Welcome viewers!</div></div><div class="host-viewer-list" id="host-viewer-list"><b>👥 Viewers</b><div class="host-viewer-empty">Waiting for viewers…</div></div><div class="host-hearts" aria-hidden="true">💗<br>💖</div><div class="host-live-bottom"><button type="button" class="host-gift" id="host-gift">🎁<small>Gift</small></button><form class="host-comment-form" id="host-comment-form"><input id="host-comment-input" maxlength="500" placeholder="Write a comment…" aria-label="Write a live comment"><button type="submit" aria-label="Send comment">➤</button></form></div><div id="host-gift-panel" class="host-gift-panel" hidden><b>🎁 Gifts received</b><div id="host-gift-history">No gifts yet.</div><small>Virtual test coins only.</small></div></div><div id="agora-remote" style="display:none"></div>'
- : '<div class="live-viewer-ui"><div id="media-connection-status" class="note" style="margin-bottom:10px">Connecting to '+safe(data.mode==='rtc'?'1-to-1 call':'live stream')+'…</div><div class="host-follow-row"><button type="button" id="follow-host">＋ Follow Host</button><button type="button" class="live-action-btn" id="report-live">🚩 Report Live</button></div><div id="agora-local" style="display:block;width:100%;min-height:220px;height:42vh;max-height:420px;border-radius:14px;background:#080611;overflow:hidden"></div><div id="agora-remote" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div><div id="viewer-chat-overlay" class="host-chat-overlay"></div><form class="host-comment-form viewer-comment-form" id="host-comment-form"><input id="host-comment-input" maxlength="500" placeholder="Write a comment…" aria-label="Write a live comment"><button type="submit" aria-label="Send comment">➤</button></form><div class="viewer-gift-bar"><span>🪙 <b id="viewer-wallet-balance">100</b> coins</span><button type="button" id="viewer-gift-open">🎁 Send Gift</button></div><div id="viewer-gift-panel" class="host-gift-panel" hidden><b>Send a gift</b><button type="button" data-send-gift="rose">🌹 Rose · 10</button><button type="button" data-send-gift="heart">💖 Heart · 20</button><button type="button" data-send-gift="crown">👑 Crown · 100</button><small>Promotional test coins only; no cash value.</small></div></div>';
+ : '<div class="live-viewer-ui"><div id="media-connection-status" class="note" style="margin-bottom:10px">Connecting to '+safe(data.mode==='rtc'?'1-to-1 call':'live stream')+'…</div><div class="host-follow-row"><button type="button" id="follow-host">＋ Follow Host</button><button type="button" class="live-action-btn" id="report-live">🚩 Report Live</button></div><div id="agora-local" style="display:block;width:100%;min-height:220px;height:42vh;max-height:420px;border-radius:14px;background:#080611;overflow:hidden"></div><div id="agora-remote" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div><div id="viewer-chat-overlay" class="host-chat-overlay"></div><form class="host-comment-form viewer-comment-form" id="host-comment-form"><input id="host-comment-input" maxlength="500" placeholder="Write a comment…" aria-label="Write a live comment"><button type="submit" aria-label="Send comment">➤</button></form><div class="viewer-gift-bar"><span>🪙 <b id="viewer-wallet-balance">100</b> coins</span><button type="button" id="viewer-gift-open">🎁 Send Gift</button></div><div id="viewer-gift-panel" class="host-gift-panel" hidden><b>🎁 Send a gift</b><button type="button" id="gift-sound-toggle" aria-pressed="true">🔊 Gift sound: ON</button><div class="gift-catalog-grid"><button type="button" data-send-gift="rose">🌹 Rose · 10 <span>🔊</span></button><button type="button" data-send-gift="heart">💖 Heart · 20 <span>🔊</span></button><button type="button" data-send-gift="icecream">🍦 Ice Cream · 50 <span>🔊</span></button><button type="button" data-send-gift="teddy">🧸 Teddy · 100 <span>🔊</span></button><button type="button" data-send-gift="ring">💍 Ring · 200 <span>🔊</span></button><button type="button" data-send-gift="chocolate">🍫 Chocolate · 300 <span>🔊</span></button><button type="button" data-send-gift="lovecar">🚗 Love Car · 500 <span>🔊</span></button><button type="button" data-send-gift="airplane">✈️ Airplane · 1,000 <span>🔊</span></button><button type="button" data-send-gift="yacht">🛥️ Yacht · 2,000 <span>🔊</span></button><button type="button" data-send-gift="castle">🏰 Castle · 3,000 <span>🔊</span></button><button type="button" data-send-gift="firework">🎆 Fireworks · 5,000 <span>🔊</span></button><button type="button" data-send-gift="lovetrain">🚂 Love Train · 10,000 <span>🔊</span></button><button type="button" data-send-gift="phoenix">🦅 Phoenix · 20,000 <span>🔊</span></button><button type="button" data-send-gift="galaxy">🌌 Galaxy · 50,000 <span>🔊</span></button><button type="button" data-send-gift="universe">🌠 Universe · 100,000 <span>🔊</span></button></div><small>Promotional test coins only; no cash value.</small></div></div>';
  $('room-id').value=String(id);window.__funLiveActiveRoomId=String(id);const activeLiveBox=box.querySelector('.host-live-ui,.live-viewer-ui');if(activeLiveBox)activeLiveBox.dataset.liveRoomId=String(id);const activeCommentForm=box.querySelector('#host-comment-form');if(activeCommentForm)activeCommentForm.dataset.roomId=String(id);$('room-id-label').textContent='Connecting to room #'+id+'…';currentHostUserId=data.hostUserId||null;
  if(isHost){
    $('host-exit').onclick=()=>$('leave-media').click();
    $('host-share').onclick=async()=>{try{await navigator.share({title:'FUN LIVE',text:'Join my live stream on FUN LIVE. Room #'+id,url:location.href})}catch(e){if(e.name!=='AbortError')status('Share cancelled or unavailable. Use Copy ID to share room #'+id)}};
    $('host-copy-room').onclick=async()=>{try{await navigator.clipboard.writeText(String(id));$('host-copy-room').textContent='✓ Copied'}catch{status('Live room number: '+id)}};
    $('host-gift').onclick=()=>{$('host-gift-panel').hidden=!$('host-gift-panel').hidden};
+   const soundToggle=$('gift-sound-toggle');if(soundToggle){setGiftSoundButton();soundToggle.onclick=()=>{giftSoundEnabled=!giftSoundEnabled;localStorage.setItem('fun_live_gift_sound',giftSoundEnabled?'on':'off');setGiftSoundButton();if(giftSoundEnabled)playGiftSound('chime');};}
    $('host-viewer-count').textContent='0 viewers';
    loadWallet().catch(()=>{});
  }
