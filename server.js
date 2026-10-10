@@ -5,6 +5,9 @@ import rateLimit from "express-rate-limit";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import pg from "pg";
+import { AccessToken } from "livekit-server-sdk";
+import Razorpay from "razorpay";
+import crypto from "node:crypto";
 import { createServer } from "node:http";
 import { Server } from "socket.io";
 
@@ -125,6 +128,34 @@ app.patch("/api/me", auth, async (req,res) => {
     const r = await pool.query("UPDATE users SET bio=$1 WHERE id=$2 RETURNING id,username,email,bio,created_at", [bio,req.user.id]);
     res.json({ user:r.rows[0] });
   } catch { res.status(500).json({ error: "Could not update profile." }); }
+});
+app.post("/api/live/token", auth, async (req,res) => {
+  const roomName=String(req.body?.roomName||"").trim();
+  if (!roomName || roomName.length>100 || !/^[a-zA-Z0-9_-]+$/.test(roomName)) return res.status(400).json({error:"Room name is invalid."});
+  if (!process.env.LIVEKIT_URL || !process.env.LIVEKIT_API_KEY || !process.env.LIVEKIT_API_SECRET) return res.status(503).json({error:"LiveKit is not configured yet. Set LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET."});
+  try {
+    const token=new AccessToken(process.env.LIVEKIT_API_KEY,process.env.LIVEKIT_API_SECRET,{identity:String(req.user.id),name:req.user.username,ttl:"1h"});
+    token.addGrant({roomJoin:true,room:roomName,canPublish:true,canSubscribe:true,canPublishData:true});
+    res.json({url:process.env.LIVEKIT_URL,token:await token.toJwt(),roomName});
+  } catch { res.status(500).json({error:"Could not create live session."}); }
+});
+app.post("/api/payments/order", auth, async (req,res) => {
+  const amount=Number(req.body?.amountPaise);
+  if (!Number.isInteger(amount) || amount<100 || amount>1000000) return res.status(400).json({error:"Invalid order amount. Amount must be 100–1,000,000 paise."});
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) return res.status(503).json({error:"Payment gateway is not configured. Add Razorpay credentials after account verification."});
+  try {
+    const razorpay=new Razorpay({key_id:process.env.RAZORPAY_KEY_ID,key_secret:process.env.RAZORPAY_KEY_SECRET});
+    const order=await razorpay.orders.create({amount,currency:"INR",receipt:"gls_"+req.user.id+"_"+Date.now(),notes:{userId:String(req.user.id),purpose:"coin_topup_pending_verification"}});
+    res.status(201).json({orderId:order.id,amount:order.amount,currency:order.currency,keyId:process.env.RAZORPAY_KEY_ID,notice:"Do not credit coins until payment signature and webhook are verified."});
+  } catch { res.status(502).json({error:"Payment provider could not create an order."}); }
+});
+app.post("/api/payments/verify", auth, async (req,res) => {
+  const {orderId,paymentId,signature}=req.body||{};
+  if (!orderId||!paymentId||!signature||!process.env.RAZORPAY_KEY_SECRET) return res.status(400).json({error:"Missing payment verification fields or gateway configuration."});
+  const expected=crypto.createHmac("sha256",process.env.RAZORPAY_KEY_SECRET).update(String(orderId)+"|"+String(paymentId)).digest("hex");
+  const a=Buffer.from(expected); const b=Buffer.from(String(signature));
+  if(a.length!==b.length||!crypto.timingSafeEqual(a,b)) return res.status(400).json({error:"Payment signature invalid."});
+  res.status(200).json({verified:true,notice:"Signature verified. Coin crediting is intentionally disabled until idempotent ledger/webhook processing is enabled."});
 });
 app.get("/api/rooms", async (_req,res) => {
   try { const r=await pool.query("SELECT r.id,r.title,r.kind,r.created_at,u.username AS host FROM rooms r JOIN users u ON u.id=r.owner_id ORDER BY r.created_at DESC LIMIT 100"); res.json({ rooms:r.rows }); }
