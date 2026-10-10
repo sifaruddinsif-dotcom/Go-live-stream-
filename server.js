@@ -178,7 +178,9 @@ io.on("connection", socket => {
       if (!room.rowCount) return done({ error: "Room not found." });
       const result = await pool.query("INSERT INTO messages(room_id,user_id,body) VALUES($1,$2,$3) RETURNING id,room_id,body,created_at", [roomId, socket.user.sub, message]);
       const payload = { ...result.rows[0], username: socket.user.username };
-      io.to("room:" + roomId).emit("room:message", payload); done({ ok: true, message: payload });
+      io.to("room:" + roomId).emit("room:message", payload);
+      io.to("live:" + roomId).emit("room:message", payload);
+      done({ ok: true, message: payload });
     } catch { done({ error: "Could not send message." }); }
   });
 });
