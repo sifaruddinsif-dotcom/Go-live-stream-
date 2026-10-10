@@ -4,7 +4,7 @@ const safe=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;
 let endpoint=localStorage.getItem('golive_api_endpoint')||'https://go-live-stream-api.onrender.com';
 let token=sessionStorage.getItem('golive_token')||'';
 let mediaRoom=null,socket=null;
-$('endpoint').value=endpoint;
+
 function status(s){const el=$('status');el.textContent=s;el.style.cssText='display:block;padding:12px;margin:12px 0;border-radius:12px;background:#24182f;color:#fff;border:1px solid #ff329d;white-space:pre-wrap;overflow-wrap:anywhere';}
 async function call(path,method='GET',body){
  if(!endpoint)throw Error('API address is missing.');
@@ -13,15 +13,9 @@ async function call(path,method='GET',body){
  if(!response.ok)throw Error(json.error||'Request failed');return json;
 }
 async function action(fn){try{await fn()}catch(e){status('⚠️ '+(e.message||'Something went wrong.'));$('status').scrollIntoView({behavior:'smooth',block:'center'});}}
-function accountLabel(user){const u=typeof user==='string'?{username:user}:user; $('account').textContent='Signed in as '+u.username+(u.id?' · GO LIVE ID: GLS'+String(u.id).padStart(8,'0'):''); if(u.id)localStorage.setItem('golive_user',JSON.stringify({id:u.id,username:u.username,email:u.email||''}));}
-$('connect').onclick=()=>action(async()=>{
- const url=$('endpoint').value.trim().replace(/\/$/,'');
- if(!/^https:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(url))throw Error('Use a valid HTTPS API server URL.');
- endpoint=url;localStorage.setItem('golive_api_endpoint',url);
- const r=await call('/health');status(r.ok&&r.database==='connected'?'API connected; database connected.':'API health check failed.');
-});
+function accountLabel(user){const u=typeof user==='string'?{username:user}:user; $('account').textContent='Signed in as '+u.username+(u.id?' · GO LIVE ID: GLS'+String(u.id).padStart(8,'0'):''); if(u.id){localStorage.setItem('golive_user',JSON.stringify({id:u.id,username:u.username,email:u.email||''}));$('logout').hidden=false;}else $('logout').hidden=true;}
 $('register').onclick=()=>action(async()=>{
- const r=await call('/api/auth/register','POST',{username:$('username').value,email:$('email').value,password:$('password').value});
+ const r=await call('/api/auth/register','POST',{email:$('email').value,password:$('password').value});
  token=r.token;sessionStorage.setItem('golive_token',token);accountLabel(r.user);$('password').value='';status('Account created with email. You are signed in.');
 });
 $('login').onclick=()=>action(async()=>{
