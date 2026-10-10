@@ -3,7 +3,7 @@ const $=id=>document.getElementById(id);
 const safe=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let endpoint=localStorage.getItem('golive_api_endpoint')||'https://go-live-stream-api.onrender.com';
 let token=sessionStorage.getItem('golive_token')||'';
-let mediaRoom=null,socket=null,selectedCallUser=null,activeCallId=null,incomingPoll=null;
+let mediaClient=null,localTracks=[],socket=null,selectedCallUser=null,activeCallId=null,incomingPoll=null;
 
 function status(s){const el=$('status');el.textContent=s;el.style.cssText='display:block;padding:12px;margin:12px 0;border-radius:12px;background:#24182f;color:#fff;border:1px solid #ff329d;white-space:pre-wrap;overflow-wrap:anywhere';}
 async function call(path,method='GET',body){
@@ -37,36 +37,56 @@ $('history').onclick=()=>action(async()=>{
 });
 async function ensureScript(src,globalName){if(window[globalName])return;await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=()=>reject(Error('Could not load media client. Check internet connection.'));document.head.appendChild(s)})}
 async function joinMedia(id){
- if(!token)throw Error('Please register or sign in first.');
+ if(!token)throw Error('Please sign in first.');
  await leaveMedia();
  const roomName='room-'+id;
  const data=await call('/api/live/token','POST',{roomName});
- const {Room,RoomEvent,Track}=await import('https://cdn.jsdelivr.net/npm/livekit-client@2.15.6/+esm');
- mediaRoom=new Room({adaptiveStream:true,dynacast:true});
- const box=$('media-view');box.innerHTML='<div class="note">Connecting to media room '+safe(roomName)+'…</div>'; $('room-id').value=String(id); $('room-id-label').textContent='Connecting to room #'+id+'…'; box.scrollIntoView({behavior:'smooth',block:'center'});
- mediaRoom.on(RoomEvent.ConnectionStateChanged,state=>status('Media connection: '+state+'.'));
- mediaRoom.on(RoomEvent.TrackSubscribed,(track,publication,participant)=>{
-   if(track.kind==='video'||track.kind==='audio'){
-     const el=track.attach();el.autoplay=true;el.playsInline=true;el.style.cssText='width:100%;max-width:280px;border-radius:12px;margin:6px;background:#111';
-     if(track.kind==='video')box.appendChild(el);else {el.style.display='none';box.appendChild(el)}
-   }
+ const mod=await import('https://cdn.jsdelivr.net/npm/agora-rtc-sdk-ng@4.24.1/+esm');
+ const AgoraRTC=mod.default||mod;
+ const box=$('media-view');
+ box.innerHTML='<div class="note">Connecting to '+safe(data.mode==='rtc'?'1-to-1 call':'live stream')+'…</div><div id="agora-local" style="display:flex;flex-wrap:wrap;gap:8px"></div><div id="agora-remote" style="display:flex;flex-wrap:wrap;gap:8px"></div>';
+ $('room-id').value=String(id);$('room-id-label').textContent='Connecting to room #'+id+'…';box.scrollIntoView({behavior:'smooth',block:'center'});
+ mediaClient=AgoraRTC.createClient({mode:data.mode==='rtc'?'rtc':'live',codec:'vp8'});
+ mediaClient.on('user-published',async(user,mediaType)=>{
+   try{
+     await mediaClient.subscribe(user,mediaType);
+     if(mediaType==='video'){
+       let el=document.getElementById('agora-user-'+user.uid);
+       if(!el){el=document.createElement('div');el.id='agora-user-'+user.uid;el.style.cssText='width:100%;max-width:320px;min-height:180px;border-radius:12px;background:#111;overflow:hidden';$('agora-remote').appendChild(el)}
+       user.videoTrack.play(el);
+     }
+     if(mediaType==='audio')user.audioTrack.play();
+   }catch(e){status('Could not play remote media: '+(e.message||'unknown error'))}
  });
- mediaRoom.on(RoomEvent.TrackUnsubscribed,track=>track.detach().forEach(el=>el.remove()));
- mediaRoom.on(RoomEvent.ParticipantDisconnected,p=>status(p.identity+' left the room.'));
- status('Connecting to media server…');
- try {
-   await Promise.race([mediaRoom.connect(data.url,data.token),new Promise((_,reject)=>setTimeout(()=>reject(Error('Media server did not respond within 15 seconds. Check LiveKit URL and server status.')),15000))]);
- } catch(e) { try{await mediaRoom.disconnect()}catch{} mediaRoom=null;box.innerHTML='<div class="note" style="color:#ff8dbd">❌ Media connection failed: '+safe(e.message||'Unknown connection error')+'. Check the LiveKit server URL, project status, and network connection.</div>'; box.scrollIntoView({behavior:'smooth',block:'center'}); throw Error('LiveKit connection failed: '+(e.message||'Unknown connection error')); }
- if(String(id)===$('room-id').value.trim())status('Connected to room '+id+'. Allow camera/microphone permissions when asked.');
+ mediaClient.on('user-unpublished',(user,mediaType)=>{if(mediaType==='video'){const el=document.getElementById('agora-user-'+user.uid);if(el)el.remove()}});
+ mediaClient.on('user-left',user=>{const el=document.getElementById('agora-user-'+user.uid);if(el)el.remove()});
+ status('Connecting to Agora media server…');
  try{
-   await mediaRoom.localParticipant.enableCameraAndMicrophone();
-   for(const publication of mediaRoom.localParticipant.trackPublications.values()){const track=publication.track;if(track&&(track.kind==='video'||track.kind==='audio')){const el=track.attach();el.autoplay=true;el.playsInline=true;el.style.cssText='width:100%;max-width:280px;border-radius:12px;margin:6px;background:#111';box.appendChild(el)}}
-   status('Live media connected. Camera and microphone are publishing.');
- }catch(e){status('Joined room, but camera/microphone permission failed: '+e.message+'. Check browser permissions.'); box.scrollIntoView({behavior:'smooth',block:'center'})}
- $('leave-media').hidden=false;$('toggle-mic').disabled=false;$('toggle-camera').disabled=false;
+   await mediaClient.join(data.appId,data.channelName,data.token,data.uid);
+   if(data.mode==='live')await mediaClient.setClientRole(data.role==='host'?'host':'audience');
+   if(data.role==='host'){
+     localTracks=await AgoraRTC.createMicrophoneAndCameraTracks();
+     localTracks[1].play('agora-local');
+     await mediaClient.publish(localTracks);
+     status('✅ Agora connected. Your camera and microphone are live.');
+   }else{
+     status('✅ Joined live stream. Waiting for the host video…');
+   }
+ }catch(e){
+   await leaveMedia();
+   box.innerHTML='<div class="note" style="color:#ff8dbd">❌ Agora connection failed: '+safe(e.message||'Unknown error')+'. Check Agora App ID, Certificate, project security settings and browser camera permissions.</div>';
+   box.scrollIntoView({behavior:'smooth',block:'center'});
+   throw Error('Agora connection failed: '+(e.message||'Unknown error'));
+ }
+ $('leave-media').hidden=false;$('toggle-mic').disabled=data.role!=='host';$('toggle-camera').disabled=data.role!=='host';
 }
-async function leaveMedia(){if(mediaRoom){try{await mediaRoom.disconnect()}catch{}mediaRoom=null}$('media-view').innerHTML='';$('leave-media').hidden=true}
-$('leave-media').onclick=()=>action(async()=>{await leaveMedia();if(activeCallId)await call('/api/calls/'+activeCallId+'/end','POST',{}).catch(()=>{});activeCallId=null;$('toggle-mic').disabled=true;$('toggle-camera').disabled=true;status('Live/call ended.')});
+async function leaveMedia(){
+ if(mediaClient){try{if(localTracks.length)await mediaClient.unpublish(localTracks)}catch{}try{await mediaClient.leave()}catch{}mediaClient=null}
+ for(const track of localTracks){try{track.stop();track.close()}catch{}}
+ localTracks=[];
+ $('media-view').innerHTML='';$('leave-media').hidden=true;$('toggle-mic').disabled=true;$('toggle-camera').disabled=true;
+}
+$('leave-media').onclick=()=>action(async()=>{await leaveMedia();if(activeCallId)await call('/api/calls/'+activeCallId+'/end','POST',{}).catch(()=>{});activeCallId=null;status('Live/call ended.')});
 $('search-user').onclick=()=>action(async()=>{
  const q=$('call-user').value.trim();if(!q)throw Error('Enter username or GO LIVE ID.');
  const r=await call('/api/users/search?q='+encodeURIComponent(q));
@@ -91,8 +111,8 @@ document.addEventListener('click',e=>{
  const reject=e.target.closest('[data-reject-call]');if(reject)action(async()=>{await call('/api/calls/'+reject.dataset.rejectCall+'/respond','POST',{decision:'rejected'});await pollIncomingCalls();status('Call rejected.')});
 });
 $('join-call').onclick=()=>action(async()=>{const id=$('call-room-id').value.trim();if(!/^\d+$/.test(id))throw Error('Enter a valid call room number.');$('room-id-label').textContent='Joining call room #'+id;await joinMedia(id)});
-$('toggle-mic').onclick=()=>action(async()=>{if(!mediaRoom)throw Error('Join a live or call first.');const p=mediaRoom.localParticipant;const enabled=p.isMicrophoneEnabled;await p.setMicrophoneEnabled(!enabled);$('toggle-mic').textContent=enabled?'🎙️ Unmute Mic':'🎙️ Mute Mic';});
-$('toggle-camera').onclick=()=>action(async()=>{if(!mediaRoom)throw Error('Join a live or call first.');const p=mediaRoom.localParticipant;const enabled=p.isCameraEnabled;await p.setCameraEnabled(!enabled);$('toggle-camera').textContent=enabled?'📷 Camera On':'📷 Camera Off';});
+$('toggle-mic').onclick=()=>action(async()=>{if(!mediaClient||!localTracks[0])throw Error('Join your live or call first.');const track=localTracks[0];const enabled=track.enabled;track.setEnabled(!enabled);$('toggle-mic').textContent=enabled?'🎙️ Unmute Mic':'🎙️ Mute Mic';});
+$('toggle-camera').onclick=()=>action(async()=>{if(!mediaClient||!localTracks[1])throw Error('Join your live or call first.');const track=localTracks[1];const enabled=track.enabled;track.setEnabled(!enabled);$('toggle-camera').textContent=enabled?'📷 Camera On':'📷 Camera Off';});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-join]');if(b){$('room-id').value=b.dataset.join;$('room-id-label').textContent='Opening live room #'+b.dataset.join+'…';action(()=>joinMedia(b.dataset.join))}});
 $('send').onclick=()=>action(async()=>{
  if(!token)throw Error('Please sign in first.');
