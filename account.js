@@ -57,6 +57,7 @@ async function setupLiveChat(roomId){
      socket.once('connect_error',e=>{clearTimeout(timer);reject(Error(e.message||'Live chat connection failed.'))});
    });
  }
+ socket.__activeLiveRoom=String(roomId);
  const joined=await new Promise(resolve=>socket.emit('room:join',{roomId:String(roomId)},resolve));
  if(joined?.error)throw Error(joined.error);
  const liveJoined=await new Promise(resolve=>socket.emit('live:join',{roomId:String(roomId)},resolve));
@@ -129,8 +130,7 @@ async function joinMedia(id){
    }catch(e){status('Could not play remote media: '+(e.message||'unknown error'))}
  });
  mediaClient.on('user-unpublished',(user,mediaType)=>{if(mediaType==='video'){const el=document.getElementById('agora-user-'+user.uid);if(el)el.remove()}});
- mediaClient.on('user-left',user=>{const el=document.getElementById('agora-user-'+user.uid);if(el)el.remove();if($('host-viewer-count'))$('host-viewer-count').textContent=Math.max(0,Number($('host-viewer-count').dataset.count||0)-1)+' viewers';});
- mediaClient.on('user-joined',user=>{if($('host-viewer-count')){const n=Number($('host-viewer-count').dataset.count||0)+1;$('host-viewer-count').dataset.count=String(n);$('host-viewer-count').textContent=n+' viewers';}});
+ mediaClient.on('user-left',user=>{const el=document.getElementById('agora-user-'+user.uid);if(el)el.remove();});
  status('Connecting to Agora media server…');
  try{
    await mediaClient.join(data.appId,data.channelName,data.token,data.uid);
@@ -167,6 +167,11 @@ async function joinMedia(id){
  $('leave-media').hidden=false;$('toggle-mic').disabled=data.role!=='host';$('toggle-camera').disabled=data.role!=='host';
 }
 async function leaveMedia(){
+ if(socket&&socket.connected&&socket.__activeLiveRoom){
+   const oldRoom=socket.__activeLiveRoom;
+   await new Promise(resolve=>socket.emit('live:leave',{roomId:oldRoom},resolve));
+   socket.__activeLiveRoom=null;
+ }
  if(mediaClient){try{if(localTracks.length)await mediaClient.unpublish(localTracks)}catch{}try{await mediaClient.leave()}catch{}mediaClient=null}
  for(const track of localTracks){try{track.stop();track.close()}catch{}}
  localTracks=[];
