@@ -44,6 +44,7 @@ async function joinMedia(id){
  const {Room,RoomEvent,Track}=await import('https://cdn.jsdelivr.net/npm/livekit-client@2.15.6/+esm');
  mediaRoom=new Room({adaptiveStream:true,dynacast:true});
  const box=$('media-view');box.innerHTML='<div class="note">Connecting to media room '+safe(roomName)+'…</div>';
+ mediaRoom.on(RoomEvent.ConnectionStateChanged,state=>status('Media connection: '+state+'.'));
  mediaRoom.on(RoomEvent.TrackSubscribed,(track,publication,participant)=>{
    if(track.kind==='video'||track.kind==='audio'){
      const el=track.attach();el.autoplay=true;el.playsInline=true;el.style.cssText='width:100%;max-width:280px;border-radius:12px;margin:6px;background:#111';
@@ -52,7 +53,10 @@ async function joinMedia(id){
  });
  mediaRoom.on(RoomEvent.TrackUnsubscribed,track=>track.detach().forEach(el=>el.remove()));
  mediaRoom.on(RoomEvent.ParticipantDisconnected,p=>status(p.identity+' left the room.'));
- await mediaRoom.connect(data.url,data.token);
+ status('Connecting to media server…');
+ try {
+   await Promise.race([mediaRoom.connect(data.url,data.token),new Promise((_,reject)=>setTimeout(()=>reject(Error('Media server did not respond within 15 seconds. Check LiveKit URL and server status.')),15000))]);
+ } catch(e) { try{await mediaRoom.disconnect()}catch{} mediaRoom=null;box.innerHTML='<div class="note">Media connection failed. Room exists, but voice/video server did not connect.</div>';throw Error(e.message||'Could not connect to media server.'); }
  if(String(id)===$('room-id').value.trim())status('Connected to room '+id+'. Allow camera/microphone permissions when asked.');
  try{
    await mediaRoom.localParticipant.enableCameraAndMicrophone();
