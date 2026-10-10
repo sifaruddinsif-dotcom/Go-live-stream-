@@ -211,9 +211,21 @@ io.on("connection", socket => {
   });
 });
 const GIFT_CATALOG = Object.freeze({
-  rose: { label: "Rose", emoji: "🌹", coins: 10 },
-  heart: { label: "Heart", emoji: "💖", coins: 20 },
-  crown: { label: "Crown", emoji: "👑", coins: 100 }
+  rose: { label: "Rose", emoji: "🌹", coins: 10, sound: "chime" },
+  heart: { label: "Heart", emoji: "💖", coins: 20, sound: "sparkle" },
+  icecream: { label: "Ice Cream", emoji: "🍦", coins: 50, sound: "pop" },
+  teddy: { label: "Teddy Bear", emoji: "🧸", coins: 100, sound: "pop" },
+  ring: { label: "Diamond Ring", emoji: "💍", coins: 200, sound: "chime" },
+  chocolate: { label: "Chocolate", emoji: "🍫", coins: 300, sound: "pop" },
+  lovecar: { label: "Love Car", emoji: "🚗", coins: 500, sound: "fanfare" },
+  airplane: { label: "Airplane", emoji: "✈️", coins: 1000, sound: "fanfare" },
+  yacht: { label: "Yacht", emoji: "🛥️", coins: 2000, sound: "fanfare" },
+  castle: { label: "Castle", emoji: "🏰", coins: 3000, sound: "fanfare" },
+  firework: { label: "Fireworks", emoji: "🎆", coins: 5000, sound: "fanfare" },
+  lovetrain: { label: "Love Train", emoji: "🚂", coins: 10000, sound: "fanfare" },
+  phoenix: { label: "Phoenix", emoji: "🦅", coins: 20000, sound: "fanfare" },
+  galaxy: { label: "Galaxy", emoji: "🌌", coins: 50000, sound: "fanfare" },
+  universe: { label: "Universe", emoji: "🌠", coins: 100000, sound: "fanfare" }
 });
 app.get("/api/wallet", auth, async (req,res) => {
   try {
