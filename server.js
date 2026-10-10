@@ -91,8 +91,9 @@ io.on("connection", socket => {
   });
 });
 app.get("/health", async (_req, res) => {
-  try { await pool.query("SELECT 1"); res.json({ ok: true, service: "go-live-stream-api", database: "connected" }); }
-  catch { res.status(503).json({ ok: false, database: "unavailable" }); }
+  const mediaConfigured = Boolean(process.env.LIVEKIT_URL && process.env.LIVEKIT_API_KEY && process.env.LIVEKIT_API_SECRET);
+  try { await pool.query("SELECT 1"); res.json({ ok: true, service: "go-live-stream-api", database: "connected", mediaConfigured }); }
+  catch { res.status(503).json({ ok: false, database: "unavailable", mediaConfigured }); }
 });
 app.post("/api/auth/guest", rateLimit({ windowMs: 60 * 60 * 1000, limit: 10, standardHeaders: true, legacyHeaders: false }), async (_req, res) => {
   try {
