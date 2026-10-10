@@ -259,6 +259,141 @@ document.addEventListener('click',e=>{
  const accept=e.target.closest('[data-accept-call]');if(accept)action(async()=>{const id=accept.dataset.acceptCall,room=accept.dataset.roomId;await call('/api/calls/'+id+'/respond','POST',{decision:'accepted'});activeCallId=id;$('call-room-id').value=room;$('room-id-label').textContent='Connecting to accepted 1-to-1 call…';await joinMedia(room)});
  const reject=e.target.closest('[data-reject-call]');if(reject)action(async()=>{await call('/api/calls/'+reject.dataset.rejectCall+'/respond','POST',{decision:'rejected'});await pollIncomingCalls();status('Call rejected.')});
 });
+
+async function followCurrentHost(){
+ if(!currentHostUserId)throw Error("Host profile is not available yet.");
+ const b=$('follow-host');
+ const r=await call('/api/users/'+encodeURIComponent(currentHostUserId)+'/follow','POST',{});
+ if(b)b.textContent=r.following?'✓ Following':'＋ Follow Host';
+ status((r.following?'Following host.':'Unfollowed host.')+' · '+r.followers+' followers');
+}
+async function loadFollowState(){
+ if(!currentHostUserId||!$('follow-host'))return;
+ const r=await call('/api/users/'+encodeURIComponent(currentHostUserId)+'/follow-status');
+ $('follow-host').textContent=r.following?'✓ Following':'＋ Follow Host';
+}
+async function reportCurrentLive(){
+ const roomId=$('room-id')?.value.trim();
+ if(!roomId||!/^\d+$/.test(roomId))throw Error('Join a live stream before reporting.');
+ const reason=prompt('Report reason: Harassment, Nudity or sexual content, Violence, Spam or scam, Underage safety, Other');
+ if(!reason)return;
+ const normalized=["Harassment","Nudity or sexual content","Violence","Spam or scam","Underage safety","Other"].find(x=>x.toLowerCase()===reason.trim().toLowerCase());
+ if(!normalized)throw Error('Use one of these reasons: Harassment, Nudity or sexual content, Violence, Spam or scam, Underage safety, Other.');
+ const details=prompt('Optional details (or leave blank):')||'';
+ const r=await call('/api/live/report','POST',{roomId,reason:normalized,details});
+ status(r.message||'Report submitted.');
+}
+async function flipCamera(){
+ if(!mediaClient||!localTracks[1]||!AgoraRTCRef)throw Error('Start your live first.');
+ const cameras=await AgoraRTCRef.getCameras();
+ if(cameras.length<2)throw Error('This device reports only one camera. Try on a phone with front and rear cameras.');
+ const current=localTracks[1].getMediaStreamTrack?.().getSettings?.().deviceId;
+ const next=cameras.find(c=>c.deviceId!==current)||cameras[0];
+ await localTracks[1].setDevice(next.deviceId);
+ status('Camera switched.');
+}
+function cycleBeauty(){
+ const el=$('agora-local');if(!el)return;
+ const classes=['','beauty-soft','beauty-glow','beauty-cool'];
+ el.classList.remove('beauty-soft','beauty-glow','beauty-cool');
+ beautyIndex=(beautyIndex+1)%classes.length;
+ if(classes[beautyIndex])el.classList.add(classes[beautyIndex]);
+ const names=['Beauty off','Soft beauty','Glow beauty','Cool beauty'];
+ if($('beauty-mode'))$('beauty-mode').textContent='✨ '+names[beautyIndex];
+ status(names[beautyIndex]+' enabled.');
+}
+function cycleEffects(){
+ const el=$('agora-local');if(!el)return;
+ const classes=['','effect-sparkle','effect-hearts','effect-stars'];
+ el.classList.remove('effect-sparkle','effect-hearts','effect-stars');
+ effectIndex=(effectIndex+1)%classes.length;
+ if(classes[effectIndex])el.classList.add(classes[effectIndex]);
+ const names=['Effects off','Sparkles','Hearts','Stars'];
+ if($('live-effects'))$('live-effects').textContent='🎭 '+names[effectIndex];
+ status(names[effectIndex]+' effect selected.');
+}
+async function toggleScreenShare(){
+ if(!mediaClient||!localTracks[1]||!AgoraRTCRef)throw Error('Start your live first.');
+ if(screenTrack){
+   await mediaClient.unpublish([screenTrack]);try{screenTrack.stop();screenTrack.close()}catch{}screenTrack=null;
+   await mediaClient.publish([localTracks[1]]);localTracks[1].play('agora-local');
+   $('screen-share').textContent='🖥️ Share Screen';status('Screen sharing stopped. Camera is live again.');return;
+ }
+ try{
+   const created=await AgoraRTCRef.createScreenVideoTrack({encoderConfig:'720p_1'},'disable');
+   screenTrack=Array.isArray(created)?created[0]:created;
+   await mediaClient.unpublish([localTracks[1]]);
+   await mediaClient.publish([screenTrack]);
+   screenTrack.play('agora-local');
+   $('screen-share').textContent='⏹ Stop Share';
+   screenTrack.on('track-ended',()=>{if(screenTrack)action(toggleScreenShare)});
+   status('Screen sharing is live. Avoid showing private information.');
+ }catch(e){screenTrack=null;throw Error('Screen sharing could not start: '+(e.message||'permission denied'))}
+}
+async function chooseMusicFile(file){
+ if(!file)return;
+ if(!mediaClient||!AgoraRTCRef)throw Error('Start your live before sharing music.');
+ if(musicTrack){try{await mediaClient.unpublish([musicTrack]);musicTrack.stop();musicTrack.close()}catch{}musicTrack=null;}
+ if(musicElement){musicElement.pause();musicElement=null;}
+ if(musicContext){try{await musicContext.close()}catch{}musicContext=null;}
+ if(musicObjectUrl)URL.revokeObjectURL(musicObjectUrl);
+ musicObjectUrl=URL.createObjectURL(file);
+ musicElement=new Audio(musicObjectUrl);musicElement.loop=true;musicElement.preload='auto';
+ musicContext=new (window.AudioContext||window.webkitAudioContext)();
+ await musicContext.resume();
+ const source=musicContext.createMediaElementSource(musicElement);
+ const destination=musicContext.createMediaStreamDestination();
+ source.connect(destination);source.connect(musicContext.destination);
+ await musicElement.play();
+ musicTrack=AgoraRTCRef.createCustomAudioTrack({mediaStreamTrack:destination.stream.getAudioTracks()[0]});
+ await mediaClient.publish([musicTrack]);
+ $('live-music').textContent='⏹ Stop Music';
+ status('Music is being shared to viewers. Use only audio you have rights to stream.');
+}
+async function toggleMusic(){
+ if(musicTrack){
+  try{await mediaClient.unpublish([musicTrack])}catch{}try{musicTrack.stop();musicTrack.close()}catch{}musicTrack=null;
+  if(musicElement)musicElement.pause();
+  $('live-music').textContent='🎵 Music';status('Live music stopped.');return;
+ }
+ $('live-music-file').click();
+}
+async function loadWeeklyRankings(){
+ const box=$('weekly-rankings');if(!box)return;
+ box.style.display='block';box.innerHTML='<p class="note">Loading weekly ranking…</p>';
+ const r=await call('/api/rankings/weekly');
+ box.innerHTML=r.rankings.length?r.rankings.map(x=>'<div class="rank-row"><span>'+(['🥇','🥈','🥉'][x.rank-1]||('#'+x.rank))+' '+safe(x.username)+'</span><b>'+safe(x.coins)+' coins</b></div>').join(''):'<p class="note">No gifts received in the last 7 days yet.</p>';
+}
+async function buyCoinPackage(amountPaise){
+ const box=$('coin-store-status');if(box)box.textContent='Creating secure payment order…';
+ const order=await call('/api/payments/order','POST',{amountPaise:Number(amountPaise)});
+ await ensureScript('https://checkout.razorpay.com/v1/checkout.js','Razorpay');
+ const checkout=new window.Razorpay({key:order.keyId,amount:order.amount,currency:order.currency,name:'FUN LIVE',description:order.coins+' FUN Coins',order_id:order.orderId,handler:async response=>{
+   try{
+    const verified=await call('/api/payments/verify','POST',{orderId:response.razorpay_order_id,paymentId:response.razorpay_payment_id,signature:response.razorpay_signature});
+    if(box)box.textContent='Payment verified. '+verified.coins+' coins credited. Balance: '+verified.balance+'.';
+    await loadWallet();
+   }catch(e){if(box)box.textContent='Payment was submitted but verification needs attention: '+e.message;}
+ },modal:{ondismiss:()=>{if(box)box.textContent='Payment window closed. No coins were added.';},confirm_close:true}});
+ checkout.on('payment.failed',response=>{if(box)box.textContent='Payment failed: '+(response.error?.description||'Please try again.');});
+ checkout.open();
+}
+document.addEventListener('click',e=>{
+ if(e.target.closest('#follow-host'))action(followCurrentHost);
+ if(e.target.closest('#report-live'))action(reportCurrentLive);
+ if(e.target.closest('#flip-camera'))action(flipCamera);
+ if(e.target.closest('#beauty-mode'))cycleBeauty();
+ if(e.target.closest('#live-effects'))cycleEffects();
+ if(e.target.closest('#screen-share'))action(toggleScreenShare);
+ if(e.target.closest('#live-music'))action(toggleMusic);
+ if(e.target.closest('#open-rankings'))action(loadWeeklyRankings);
+ const packageButton=e.target.closest('[data-coin-package]');
+ if(packageButton)action(()=>buyCoinPackage(packageButton.dataset.coinPackage));
+});
+document.addEventListener('change',e=>{
+ if(e.target?.id==='live-music-file')action(()=>chooseMusicFile(e.target.files?.[0]));
+});
+
 async function loadWallet(){
  const r=await call('/api/wallet');
  if($('host-wallet-balance'))$('host-wallet-balance').textContent=String(r.balance);
