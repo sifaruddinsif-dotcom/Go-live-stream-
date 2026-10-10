@@ -173,7 +173,7 @@ app.post("/api/gifts/send", auth, async (req,res) => {
   const roomId=String(req.body?.roomId||"");
   const giftKey=String(req.body?.giftKey||"");
   const gift=GIFT_CATALOG[giftKey];
-  if(!/^\\d+$/.test(roomId)||!gift) return res.status(400).json({error:"Choose a valid live room and gift."});
+  if(!/^\d+$/.test(roomId)||!gift) return res.status(400).json({error:"Choose a valid live room and gift."});
   const client=await pool.connect();
   try {
     await client.query("BEGIN");
