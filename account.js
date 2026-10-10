@@ -74,9 +74,18 @@ async function joinMedia(id){
    await mediaClient.join(data.appId,data.channelName,data.token,data.uid);
    if(data.mode==='live')await mediaClient.setClientRole(data.role==='host'?'host':'audience');
    if(data.role==='host'){
-     localTracks=await AgoraRTC.createMicrophoneAndCameraTracks();
-     localTracks[1].play('agora-local');
-     await mediaClient.publish(localTracks);
+     // Build one microphone track and exactly one camera video track.
+     const micTrack=await AgoraRTC.createMicrophoneAudioTrack();
+     let cameraTrack;
+     try{
+       cameraTrack=await AgoraRTC.createCameraVideoTrack();
+     }catch(e){
+       micTrack.stop();micTrack.close();
+       throw e;
+     }
+     localTracks=[micTrack,cameraTrack];
+     cameraTrack.play('agora-local');
+     await mediaClient.publish([micTrack,cameraTrack]);
      status('✅ Agora connected. Your camera and microphone are live.');
    }else{
      status('✅ Joined live stream. Waiting for the host video…');
