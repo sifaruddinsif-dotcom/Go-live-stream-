@@ -120,7 +120,7 @@ document.addEventListener('submit',async e=>{
  if(!body)return;
  // Prefer the room ID passed into joinMedia: the shared account form field can be stale
  // when the live UI has been rendered or a previous room was left.
- const roomId=String(form.dataset.roomId||form.closest('[data-live-room-id]')?.dataset.liveRoomId||window.__funLiveActiveRoomId||socket?.__activeLiveRoom||$('room-id')?.value.trim()||'').trim();
+ let roomId=String(form.dataset.roomId||form.closest('[data-live-room-id]')?.dataset.liveRoomId||window.__funLiveActiveRoomId||socket?.__activeLiveRoom||$('room-id')?.value.trim()||'').trim();
  if(!socket||!socket.connected){
    const note=document.createElement('div');
    note.className='live-comment-notice';
@@ -134,7 +134,7 @@ document.addEventListener('submit',async e=>{
  if(!/^\d+$/.test(roomId)){
    const fallback=String(form.dataset.roomId||form.closest('.host-live-ui,.live-viewer-ui')?.dataset.liveRoomId||'').trim();
    if(/^\d+$/.test(fallback)){
-     window.__funLiveActiveRoomId=fallback;
+     roomId=fallback;window.__funLiveActiveRoomId=fallback;
    }else{
      const note=form.parentElement?.querySelector('.live-comment-notice')||form.nextElementSibling;
      if(note?.classList.contains('live-comment-notice'))note.textContent='Comment not sent: live room ID is missing. Close this live and start a fresh room.';
