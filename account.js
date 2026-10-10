@@ -44,14 +44,14 @@ $('history').onclick=()=>action(async()=>{
  const r=await call('/api/rooms/'+id+'/messages');
  $('messages').innerHTML=r.messages.map(m=>'<div class="chat"><b>'+safe(m.username)+':</b> '+safe(m.body)+'</div>').join('');status('Saved messages loaded.');
 });
-async function ensureScript(src,globalName){if(window[globalName])return;await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=()=>reject(Error('Could not load media client. Check internet connection.'));document.head.appendChild(s)})}
+async function ensureScript(src,globalName){if(window[globalName])return;await new Promise((resolve,reject)=>{const s=document.createElement('script');let settled=false;const finish=(err)=>{if(settled)return;settled=true;clearTimeout(timer);s.onload=null;s.onerror=null;err?reject(err):resolve()};const timer=setTimeout(()=>finish(Error('Chat library download timed out. Check internet connection and reload.')),10000);s.src=src;s.onload=()=>finish();s.onerror=()=>finish(Error('Could not load chat library. Check internet connection.'));document.head.appendChild(s)})}
 async function setupLiveChat(roomId){
  if(!token)throw Error('Sign in again to connect live chat.');
  if(!/^\d+$/.test(String(roomId||'')))throw Error('Live room ID is missing.');
  await ensureScript('https://cdn.socket.io/4.8.1/socket.io.min.js','io');
  if(!socket||!socket.connected){
    if(socket)try{socket.disconnect()}catch{}
-   socket=window.io(endpoint,{auth:{token},transports:['websocket','polling'],timeout:8000,reconnection:true,reconnectionAttempts:5,reconnectionDelay:800});
+   socket=window.io(endpoint,{auth:{token},transports:['polling','websocket'],upgrade:true,rememberUpgrade:false,timeout:10000,reconnection:true,reconnectionAttempts:5,reconnectionDelay:800,forceNew:true});
    await new Promise((resolve,reject)=>{
      let settled=false;
      const finish=(err)=>{if(settled)return;settled=true;clearTimeout(timer);socket.off('connect',onConnect);socket.off('connect_error',onError);err?reject(err):resolve()};
