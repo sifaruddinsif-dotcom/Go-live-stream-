@@ -21,7 +21,7 @@ async function call(path,method='GET',body){
  const json=await response.json().catch(()=>({error:'Invalid API response'}));
  if(!response.ok)throw Error(json.error||'Request failed');return json;
 }
-async function action(fn){try{await fn()}catch(e){status('⚠️ '+(e.message||'Something went wrong.'));$('status').scrollIntoView({behavior:'smooth',block:'center'});}}
+async function action(fn){try{await fn()}catch(e){status('⚠️ '+(e.message||'Something went wrong.'));const visibleStatus=$('rooms-status')||$('status');visibleStatus?.scrollIntoView({behavior:'smooth',block:'center'});}}
 function accountLabel(user){const u=typeof user==='string'?{username:user}:user; $('account').textContent='Signed in as '+u.username+(u.id?' · GO LIVE ID: GLS'+String(u.id).padStart(8,'0'):''); if(u.id){localStorage.setItem('golive_user',JSON.stringify({id:u.id,username:u.username,email:u.email||''}));$('logout').hidden=false;}else $('logout').hidden=true;}
 $('register').onclick=()=>action(async()=>{
  const r=await call('/api/auth/register','POST',{email:$('email').value,password:$('password').value});
@@ -117,9 +117,35 @@ $('search-user').onclick=()=>action(async()=>{
 document.addEventListener('click',e=>{const b=e.target.closest('[data-user-id]');if(b){selectedCallUser={id:b.dataset.userId,name:b.dataset.userName};$('create-call').disabled=false;status('Selected '+selectedCallUser.name+'. Tap Call Selected User.')}});
 $('create-call').onclick=()=>action(async()=>{
  if(!selectedCallUser)throw Error('Find and select a GO LIVE user first.');
- const r=await call('/api/calls','POST',{calleeId:selectedCallUser.id});activeCallId=r.call.id;status('Calling '+selectedCallUser.name+'… Waiting for them to accept.');
- const started=Date.now();while(Date.now()-started<60000){await new Promise(resolve=>setTimeout(resolve,2000));const state=await call('/api/calls/'+activeCallId);if(state.call.status==='accepted'){status('Call accepted. Connecting video…');$('call-room-id').value=state.call.room_id;await joinMedia(state.call.room_id);return}if(['rejected','ended','missed'].includes(state.call.status)){status('Call '+state.call.status+'.');return}}
- await call('/api/calls/'+activeCallId+'/end','POST',{}).catch(()=>{});status('No answer. Call ended.');
+ const callButton=$('create-call');
+ if(callButton.disabled) return;
+ callButton.disabled=true;
+ try{
+  const r=await call('/api/calls','POST',{calleeId:selectedCallUser.id});
+  activeCallId=r.call.id;
+  status('📲 Calling '+selectedCallUser.name+'… Keep this page open while they accept.');
+  const started=Date.now();
+  while(Date.now()-started<60000){
+   await new Promise(resolve=>setTimeout(resolve,2000));
+   const state=await call('/api/calls/'+activeCallId);
+   if(state.call.status==='accepted'){
+    status('✅ Call accepted. Connecting video…');
+    $('call-room-id').value=state.call.room_id;
+    await joinMedia(state.call.room_id);
+    return;
+   }
+   if(['rejected','ended','missed'].includes(state.call.status)){
+    status('Call '+state.call.status+'.');
+    activeCallId=null;
+    return;
+   }
+  }
+  await call('/api/calls/'+activeCallId+'/end','POST',{}).catch(()=>{});
+  activeCallId=null;
+  status('No answer after 60 seconds. Call ended.');
+ }finally{
+  callButton.disabled=!selectedCallUser;
+ }
 });
 async function pollIncomingCalls(){
  if(!token)return;
