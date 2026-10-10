@@ -24,6 +24,11 @@
 .host-live-status{position:absolute;z-index:3;top:119px;left:12px;right:12px;font-size:11px;color:#fff;background:#140d23b8;border-radius:14px;padding:7px 10px;pointer-events:none}
 .host-chat-overlay{position:absolute;z-index:3;left:12px;bottom:74px;width:min(76%,340px);display:flex;flex-direction:column;gap:7px;pointer-events:none}
 .host-chat-message{width:fit-content;max-width:100%;padding:7px 10px;border-radius:16px;background:#110b20c9;color:#f7eaf8;font-size:12px;overflow-wrap:anywhere}
+.host-viewer-list{position:absolute;z-index:5;top:214px;right:10px;width:min(155px,43%);max-height:150px;overflow:auto;padding:9px;border:1px solid #ff329780;border-radius:14px;background:#130b21d9;color:#fff;font-size:11px;backdrop-filter:blur(8px)}
+.host-viewer-list b{display:block;margin-bottom:6px;color:#ffb5d9}
+.host-viewer-entry{display:flex;align-items:center;gap:6px;padding:4px 0;overflow-wrap:anywhere}
+.host-viewer-dot{width:6px;height:6px;border-radius:50%;background:#46f5a6;flex:0 0 auto}
+.host-viewer-empty{color:#cdbbd6;font-size:10px}
 .host-hearts{position:absolute;right:14px;bottom:96px;z-index:3;line-height:1.9;font-size:25px;filter:drop-shadow(0 2px 7px #ff3297);pointer-events:none}
 .host-live-bottom{position:absolute;z-index:4;left:10px;right:10px;bottom:10px;display:flex;align-items:center;gap:9px}
 .host-gift{border:1px solid #ff3297;background:#25102c;color:#fff;border-radius:50%;width:48px;height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:20px}
@@ -89,6 +94,6 @@
 </div>
 </section>
 <section id="room-chat" style="display:none"><div class="room"><input id="room-id" type="hidden"><input id="message" type="hidden"><div id="messages" hidden></div><button class="primary" id="history" hidden>History</button><button class="primary" id="send" hidden>Send</button><button class="primary" id="logout">Log out</button></div></section>
-<script src="account.js?v=20261010-chatfix10"></script><script>
+<script src="account.js?v=20261010-viewerpresence1"></script><script>
 (()=>{const lt=document.getElementById('login-tab'),rt=document.getElementById('register-tab'),login=document.getElementById('login'),register=document.getElementById('register'),forgot=document.getElementById('forgot'),line=document.getElementById('switchline');function mode(isReg){lt.classList.toggle('active',!isReg);rt.classList.toggle('active',isReg);login.hidden=isReg;register.hidden=!isReg;forgot.hidden=isReg;line.innerHTML=isReg?'Already have an account? <button type="button" id="login-now">Login</button>':'Don\'t have an account? <button type="button" id="create-now">Create now</button>';document.getElementById('create-now')?.addEventListener('click',()=>mode(true));document.getElementById('login-now')?.addEventListener('click',()=>mode(false));document.getElementById('password').autocomplete=isReg?'new-password':'current-password'}lt.onclick=()=>mode(false);rt.onclick=()=>mode(true);document.getElementById('create-now').onclick=()=>mode(true);forgot.onclick=e=>{e.preventDefault();document.getElementById('status').textContent='Password reset is not set up yet. Please contact support.'};document.querySelectorAll('[data-social]').forEach(b=>b.onclick=()=>{document.getElementById('status').textContent=b.dataset.social+' sign-in is not connected yet. Use email for now.'});function showRooms(){document.querySelector('.login-hero').style.display='none';document.querySelector('.login-panel').style.display='none';document.getElementById('rooms').style.display='block';document.getElementById('room-chat').style.display='block'}if(sessionStorage.getItem('golive_token'))showRooms();document.addEventListener('click',e=>{if(e.target.closest('#login')||e.target.closest('#register'))setTimeout(()=>{if(sessionStorage.getItem('golive_token'))showRooms()},400)})})();
 </script></div></body></html>
