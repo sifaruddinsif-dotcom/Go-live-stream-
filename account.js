@@ -13,7 +13,7 @@ async function call(path,method='GET',body){
  if(!response.ok)throw Error(json.error||'Request failed');return json;
 }
 async function action(fn){try{await fn()}catch(e){status(e.message)}}
-function accountLabel(name){$('account').textContent=name}
+function accountLabel(user){const u=typeof user==='string'?{username:user}:user; $('account').textContent='Signed in as '+u.username+(u.id?' · GO LIVE ID: GLS'+String(u.id).padStart(8,'0'):''); if(u.id)localStorage.setItem('golive_user',JSON.stringify({id:u.id,username:u.username,email:u.email||''}));}
 $('connect').onclick=()=>action(async()=>{
  const url=$('endpoint').value.trim().replace(/\/$/,'');
  if(!/^https:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(url))throw Error('Use a valid HTTPS API server URL.');
@@ -26,9 +26,9 @@ $('register').onclick=()=>action(async()=>{
 });
 $('login').onclick=()=>action(async()=>{
  const r=await call('/api/auth/login','POST',{email:$('email').value,password:$('password').value});
- token=r.token;sessionStorage.setItem('golive_token',token);accountLabel('Signed in as '+r.user.username);status('Signed in successfully.');
+ token=r.token;sessionStorage.setItem('golive_token',token);accountLabel(r.user);status('Signed in successfully.');
 });
-$('logout').onclick=async()=>{await leaveMedia();token='';sessionStorage.removeItem('golive_token');accountLabel('Signed out.');status('You have signed out.')};
+$('logout').onclick=async()=>{await leaveMedia();token='';sessionStorage.removeItem('golive_token');accountLabel('Signed out.');localStorage.removeItem('golive_user');status('You have signed out.')};
 $('refresh').onclick=()=>action(async()=>{
  const r=await call('/api/rooms');$('rooms').innerHTML=r.rooms.length?r.rooms.map(x=>'<div class="row"><span>'+safe(x.title)+' ('+safe(x.kind)+')</span><small>Room #'+safe(x.id)+' · '+safe(x.host)+'</small><button class="primary" data-join="'+safe(x.id)+'">Join media</button></div>').join(''):'<p>No rooms yet. Sign in and create one.</p>';status('Rooms loaded.');
 });
@@ -78,6 +78,6 @@ $('send').onclick=()=>action(async()=>{
  const sent=await new Promise(resolve=>socket.emit('room:message',{roomId:id,body},resolve));if(sent?.error)throw Error(sent.error);
  $('message').value='';const history=await call('/api/rooms/'+id+'/messages');$('messages').innerHTML=history.messages.map(m=>'<div class="chat"><b>'+safe(m.username)+':</b> '+safe(m.body)+'</div>').join('');status('Message sent.');
 });
-if(token&&endpoint)action(async()=>{const r=await call('/api/me');accountLabel('Signed in as '+r.user.username);});
+if(token&&endpoint)action(async()=>{const r=await call('/api/me');accountLabel(r.user);});
 action(async()=>{const r=await call('/health');status(r.ok&&r.database==='connected'?'API connected; database connected.':'API health check failed.')});
 })();
