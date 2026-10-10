@@ -3,7 +3,7 @@ const $=id=>document.getElementById(id);
 const safe=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let endpoint=localStorage.getItem('golive_api_endpoint')||'https://go-live-stream-api.onrender.com';
 let token=sessionStorage.getItem('golive_token')||'';
-let mediaRoom=null,socket=null;
+let mediaRoom=null,socket=null,selectedCallUser=null,activeCallId=null,incomingPoll=null;
 
 function status(s){const el=$('status');el.textContent=s;el.style.cssText='display:block;padding:12px;margin:12px 0;border-radius:12px;background:#24182f;color:#fff;border:1px solid #ff329d;white-space:pre-wrap;overflow-wrap:anywhere';}
 async function call(path,method='GET',body){
@@ -66,8 +66,30 @@ async function joinMedia(id){
  $('leave-media').hidden=false;$('toggle-mic').disabled=false;$('toggle-camera').disabled=false;
 }
 async function leaveMedia(){if(mediaRoom){try{await mediaRoom.disconnect()}catch{}mediaRoom=null}$('media-view').innerHTML='';$('leave-media').hidden=true}
-$('leave-media').onclick=()=>action(async()=>{await leaveMedia();$('toggle-mic').disabled=true;$('toggle-camera').disabled=true;status('Live/call ended.')});
-$('create-call').onclick=()=>action(async()=>{const title=$('call-title').value.trim()||'Private 1-to-1 Call';const r=await call('/api/rooms','POST',{title,kind:'live'});$('call-room-id').value=r.room.id;$('room-id-label').textContent='Private call room #'+r.room.id+' — send this number to the other person.';status('Call room created. Connecting…');await joinMedia(r.room.id)});
+$('leave-media').onclick=()=>action(async()=>{await leaveMedia();if(activeCallId)await call('/api/calls/'+activeCallId+'/end','POST',{}).catch(()=>{});activeCallId=null;$('toggle-mic').disabled=true;$('toggle-camera').disabled=true;status('Live/call ended.')});
+$('search-user').onclick=()=>action(async()=>{
+ const q=$('call-user').value.trim();if(!q)throw Error('Enter username or GO LIVE ID.');
+ const r=await call('/api/users/search?q='+encodeURIComponent(q));
+ $('user-results').innerHTML=r.users.length?r.users.map(u=>'<button type="button" class="primary" data-user-id="'+safe(u.id)+'" data-user-name="'+safe(u.username)+'">'+safe(u.username)+' · '+safe(u.goLiveId)+'</button>').join(''):'<p>No user found. Ask them to open GO LIVE once first.</p>';
+});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-user-id]');if(b){selectedCallUser={id:b.dataset.userId,name:b.dataset.userName};$('create-call').disabled=false;status('Selected '+selectedCallUser.name+'. Tap Call Selected User.')}});
+$('create-call').onclick=()=>action(async()=>{
+ if(!selectedCallUser)throw Error('Find and select a GO LIVE user first.');
+ const r=await call('/api/calls','POST',{calleeId:selectedCallUser.id});activeCallId=r.call.id;status('Calling '+selectedCallUser.name+'… Waiting for them to accept.');
+ const started=Date.now();while(Date.now()-started<60000){await new Promise(resolve=>setTimeout(resolve,2000));const state=await call('/api/calls/'+activeCallId);if(state.call.status==='accepted'){status('Call accepted. Connecting video…');$('call-room-id').value=state.call.room_id;await joinMedia(state.call.room_id);return}if(['rejected','ended','missed'].includes(state.call.status)){status('Call '+state.call.status+'.');return}}
+ await call('/api/calls/'+activeCallId+'/end','POST',{}).catch(()=>{});status('No answer. Call ended.');
+});
+async function pollIncomingCalls(){
+ if(!token)return;
+ try{const r=await call('/api/calls/incoming');const box=$('incoming-calls');
+ box.innerHTML=r.calls.map(c=>'<div class="row"><span>📲 Incoming call from '+safe(c.caller)+'</span><button class="primary" data-accept-call="'+safe(c.id)+'" data-room-id="'+safe(c.room_id)+'">Accept</button><button class="primary" data-reject-call="'+safe(c.id)+'">Reject</button></div>').join('');
+ }catch{}
+}
+setInterval(pollIncomingCalls,3000);
+document.addEventListener('click',e=>{
+ const accept=e.target.closest('[data-accept-call]');if(accept)action(async()=>{const id=accept.dataset.acceptCall,room=accept.dataset.roomId;await call('/api/calls/'+id+'/respond','POST',{decision:'accepted'});activeCallId=id;$('call-room-id').value=room;$('room-id-label').textContent='Connecting to accepted 1-to-1 call…';await joinMedia(room)});
+ const reject=e.target.closest('[data-reject-call]');if(reject)action(async()=>{await call('/api/calls/'+reject.dataset.rejectCall+'/respond','POST',{decision:'rejected'});await pollIncomingCalls();status('Call rejected.')});
+});
 $('join-call').onclick=()=>action(async()=>{const id=$('call-room-id').value.trim();if(!/^\\d+$/.test(id))throw Error('Enter a valid call room number.');$('room-id-label').textContent='Joining call room #'+id;await joinMedia(id)});
 $('toggle-mic').onclick=()=>action(async()=>{if(!mediaRoom)throw Error('Join a live or call first.');const p=mediaRoom.localParticipant;const enabled=p.isMicrophoneEnabled;await p.setMicrophoneEnabled(!enabled);$('toggle-mic').textContent=enabled?'🎙️ Unmute Mic':'🎙️ Mute Mic';});
 $('toggle-camera').onclick=()=>action(async()=>{if(!mediaRoom)throw Error('Join a live or call first.');const p=mediaRoom.localParticipant;const enabled=p.isCameraEnabled;await p.setCameraEnabled(!enabled);$('toggle-camera').textContent=enabled?'📷 Camera On':'📷 Camera Off';});
