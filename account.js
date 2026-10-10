@@ -45,6 +45,44 @@ $('history').onclick=()=>action(async()=>{
  $('messages').innerHTML=r.messages.map(m=>'<div class="chat"><b>'+safe(m.username)+':</b> '+safe(m.body)+'</div>').join('');status('Saved messages loaded.');
 });
 async function ensureScript(src,globalName){if(window[globalName])return;await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=()=>reject(Error('Could not load media client. Check internet connection.'));document.head.appendChild(s)})}
+async function setupLiveChat(roomId){
+ if(!token)return;
+ await ensureScript('https://cdn.socket.io/4.8.1/socket.io.min.js','io');
+ if(!socket||!socket.connected){
+   if(socket)try{socket.disconnect()}catch{}
+   socket=window.io(endpoint,{auth:{token},transports:['websocket','polling']});
+   await new Promise((resolve,reject)=>{
+     const timer=setTimeout(()=>reject(Error('Live chat connection timed out.')),8000);
+     socket.once('connect',()=>{clearTimeout(timer);resolve()});
+     socket.once('connect_error',e=>{clearTimeout(timer);reject(Error(e.message||'Live chat connection failed.'))});
+   });
+ }
+ const joined=await new Promise(resolve=>socket.emit('room:join',{roomId:String(roomId)},resolve));
+ if(joined?.error)throw Error(joined.error);
+ if(socket.__liveChatHandler)socket.off('room:message',socket.__liveChatHandler);
+ socket.__liveChatHandler=message=>{
+   if(String(message.room_id)!==String(roomId))return;
+   const overlay=$('host-chat-overlay');
+   if(!overlay)return;
+   const line=document.createElement('div');line.className='host-chat-message';
+   const name=document.createElement('b');name.textContent=String(message.username||'User')+': ';
+   const body=document.createElement('span');body.textContent=String(message.body||'');
+   line.append(name,body);overlay.appendChild(line);
+   while(overlay.children.length>4)overlay.firstElementChild.remove();
+ };
+ socket.on('room:message',socket.__liveChatHandler);
+ const form=$('host-comment-form');
+ if(form&&!form.dataset.bound){
+   form.dataset.bound='1';
+   form.addEventListener('submit',async e=>{
+     e.preventDefault();const input=$('host-comment-input'),body=input.value.trim();if(!body)return;
+     const send=form.querySelector('button[type="submit"]');send.disabled=true;
+     try{const result=await new Promise(resolve=>socket.emit('room:message',{roomId:String(roomId),body},resolve));if(result?.error)throw Error(result.error);input.value=''}
+     catch(err){status('Comment not sent: '+(err.message||'Try again.'))}
+     finally{send.disabled=false}
+   });
+ }
+}
 async function joinMedia(id){
  if(!token)throw Error('Please sign in first.');
  await leaveMedia();
@@ -56,7 +94,7 @@ async function joinMedia(id){
  const isHost=data.role==='host' && data.mode==='live';
  const liveTitle=$('room-title')?.value.trim()||'My Live';
  box.innerHTML=isHost
- ? '<div class="host-live-ui"><div class="host-live-top"><button type="button" class="host-exit" id="host-exit" aria-label="Leave live">×</button><div class="host-title-block"><b>'+safe(liveTitle)+'</b><small>🔴 LIVE · <span id="host-viewer-count">0 viewers</span></small></div><button type="button" class="host-share" id="host-share">↗ Share</button></div><div class="host-room-strip"><span>🪙 0 coins</span><span>Room #'+safe(id)+'</span><button type="button" id="host-copy-room">▢ Copy ID</button></div><div id="media-connection-status" class="host-live-status">Connecting to live stream…</div><div id="agora-local" class="host-video"></div><div class="host-chat-overlay" id="host-chat-overlay"><div class="host-chat-message">🎉 Your live has started. Welcome viewers!</div></div><div class="host-hearts" aria-hidden="true">💗<br>💖</div><div class="host-live-bottom"><button type="button" class="host-gift" id="host-gift">🎁<small>Gift</small></button><div class="host-comment"><span>Comments appear here</span></div></div><div id="host-gift-panel" class="host-gift-panel" hidden><b>Gifts</b><p>Gift sending will be enabled after the coin wallet is connected.</p><div>🌹　💗　👑</div></div></div><div id="agora-remote" style="display:none"></div>'
+ ? '<div class="host-live-ui"><div class="host-live-top"><button type="button" class="host-exit" id="host-exit" aria-label="Leave live">×</button><div class="host-title-block"><b>'+safe(liveTitle)+'</b><small>🔴 LIVE · <span id="host-viewer-count">0 viewers</span></small></div><button type="button" class="host-share" id="host-share">↗ Share</button></div><div class="host-room-strip"><span>🪙 0 coins</span><span>Room #'+safe(id)+'</span><button type="button" id="host-copy-room">▢ Copy ID</button></div><div id="media-connection-status" class="host-live-status">Connecting to live stream…</div><div id="agora-local" class="host-video"></div><div class="host-chat-overlay" id="host-chat-overlay"><div class="host-chat-message">🎉 Your live has started. Welcome viewers!</div></div><div class="host-hearts" aria-hidden="true">💗<br>💖</div><div class="host-live-bottom"><button type="button" class="host-gift" id="host-gift">🎁<small>Gift</small></button><form class="host-comment-form" id="host-comment-form"><input id="host-comment-input" maxlength="500" placeholder="Write a comment…" aria-label="Write a live comment"><button type="submit" aria-label="Send comment">➤</button></form></div><div id="host-gift-panel" class="host-gift-panel" hidden><b>Gifts</b><p>Gift sending will be enabled after the coin wallet is connected.</p><div>🌹　💗　👑</div></div></div><div id="agora-remote" style="display:none"></div>'
  : '<div id="media-connection-status" class="note" style="margin-bottom:10px">Connecting to '+safe(data.mode==='rtc'?'1-to-1 call':'live stream')+'…</div><div id="agora-local" style="display:block;width:100%;min-height:220px;height:42vh;max-height:420px;border-radius:14px;background:#080611;overflow:hidden"></div><div id="agora-remote" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>';
  $('room-id').value=String(id);$('room-id-label').textContent='Connecting to room #'+id+'…';
  if(isHost){
@@ -102,6 +140,7 @@ async function joinMedia(id){
      const connectionStatus=$('media-connection-status');
      if(connectionStatus)connectionStatus.textContent='🔴 LIVE · Camera and microphone connected';
      status('✅ Agora connected. Your camera and microphone are live.');
+     try{await setupLiveChat(id)}catch(chatError){status('Live is running, but comments are offline: '+(chatError.message||'chat unavailable'))}
    }else{
      const connectionStatus=$('media-connection-status');
      if(connectionStatus)connectionStatus.textContent='Connected. Waiting for the host video…';
