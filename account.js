@@ -5,7 +5,16 @@ let endpoint=localStorage.getItem('golive_api_endpoint')||'https://go-live-strea
 let token=sessionStorage.getItem('golive_token')||'';
 let mediaClient=null,localTracks=[],socket=null,selectedCallUser=null,activeCallId=null,incomingPoll=null;
 
-function status(s){const el=$('status');el.textContent=s;el.style.cssText='display:block;padding:12px;margin:12px 0;border-radius:12px;background:#24182f;color:#fff;border:1px solid #ff329d;white-space:pre-wrap;overflow-wrap:anywhere';}
+function status(s){
+ let el=$('status');
+ const rooms=$('rooms');
+ if(rooms && getComputedStyle(rooms).display!=='none'){
+   el=$('rooms-status');
+   if(!el){el=document.createElement('p');el.id='rooms-status';el.setAttribute('role','status');el.className='note';el.style.cssText='display:block;padding:12px;margin:12px 0;border-radius:12px;background:#24182f;color:#fff;border:1px solid #ff329d;white-space:pre-wrap;overflow-wrap:anywhere';rooms.prepend(el);}
+ }else if(!el){return}
+ el.textContent=s;
+ el.style.cssText='display:block;padding:12px;margin:12px 0;border-radius:12px;background:#24182f;color:#fff;border:1px solid #ff329d;white-space:pre-wrap;overflow-wrap:anywhere';
+}
 async function call(path,method='GET',body){
  if(!endpoint)throw Error('API address is missing.');
  const response=await fetch(endpoint+path,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},...(body?{body:JSON.stringify(body)}:{})});
