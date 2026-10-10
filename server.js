@@ -49,6 +49,16 @@ async function initDb() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS messages_room_created_idx ON messages(room_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS call_requests (
+      id BIGSERIAL PRIMARY KEY,
+      caller_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      callee_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      room_id BIGINT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+      status VARCHAR(16) NOT NULL DEFAULT 'ringing' CHECK(status IN ('ringing','accepted','rejected','ended','missed')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS call_requests_callee_status_idx ON call_requests(callee_id,status,created_at DESC);
   `);
 }
 function tokenFor(user) { return jwt.sign({ sub: String(user.id), username: user.username }, JWT_SECRET, { expiresIn: "7d", issuer: "go-live-stream" }); }
@@ -155,6 +165,50 @@ app.patch("/api/me", auth, async (req,res) => {
     const r = await pool.query("UPDATE users SET bio=$1 WHERE id=$2 RETURNING id,username,email,bio,created_at", [bio,req.user.id]);
     res.json({ user:r.rows[0] });
   } catch { res.status(500).json({ error: "Could not update profile." }); }
+});
+
+app.get("/api/users/search", auth, async (req,res) => {
+  const q=String(req.query.q||"").trim().replace(/^GLS/i,"").replace(/^0+/,"");
+  if(!q || q.length>40) return res.json({users:[]});
+  try {
+    const r=await pool.query("SELECT id,username FROM users WHERE username ILIKE $1 OR id::text=$2 ORDER BY username LIMIT 10",["%"+q+"%",q]);
+    res.json({users:r.rows.map(u=>({...u,goLiveId:"GLS"+String(u.id).padStart(8,"0")}))});
+  } catch { res.status(500).json({error:"Could not search users."}); }
+});
+app.post("/api/calls", auth, async (req,res) => {
+  const calleeId=String(req.body?.calleeId||"");
+  if(!/^\\d+$/.test(calleeId) || calleeId===String(req.user.id)) return res.status(400).json({error:"Choose another valid GO LIVE user."});
+  try {
+    const u=await pool.query("SELECT id FROM users WHERE id=$1",[calleeId]);
+    if(!u.rowCount) return res.status(404).json({error:"User not found."});
+    const room=await pool.query("INSERT INTO rooms(owner_id,title,kind) VALUES($1,$2,'live') RETURNING id",[req.user.id,"call-"+req.user.id+"-"+calleeId+"-"+Date.now()]);
+    const c=await pool.query("INSERT INTO call_requests(caller_id,callee_id,room_id) VALUES($1,$2,$3) RETURNING id,room_id,status,created_at",[req.user.id,calleeId,room.rows[0].id]);
+    res.status(201).json({call:{...c.rows[0],callerId:req.user.id,calleeId:Number(calleeId)},notice:"Call request sent. The other user must accept before the call connects."});
+  } catch { res.status(500).json({error:"Could not start call."}); }
+});
+app.get("/api/calls/incoming", auth, async (req,res) => {
+  try {
+    const r=await pool.query("SELECT c.id,c.room_id,c.status,c.created_at,u.username AS caller, c.caller_id FROM call_requests c JOIN users u ON u.id=c.caller_id WHERE c.callee_id=$1 AND c.status='ringing' ORDER BY c.created_at DESC LIMIT 20",[req.user.id]);
+    res.json({calls:r.rows});
+  } catch { res.status(500).json({error:"Could not load incoming calls."}); }
+});
+app.post("/api/calls/:id/respond", auth, async (req,res) => {
+  if(!/^\\d+$/.test(req.params.id)) return res.status(400).json({error:"Invalid call ID."});
+  const decision=String(req.body?.decision||"");
+  if(!["accepted","rejected"].includes(decision)) return res.status(400).json({error:"Choose accept or reject."});
+  try {
+    const r=await pool.query("UPDATE call_requests SET status=$1,updated_at=NOW() WHERE id=$2 AND callee_id=$3 AND status='ringing' RETURNING id,room_id,status,caller_id,callee_id",[decision,req.params.id,req.user.id]);
+    if(!r.rowCount) return res.status(404).json({error:"Call request is no longer available."});
+    res.json({call:r.rows[0]});
+  } catch { res.status(500).json({error:"Could not respond to call."}); }
+});
+app.post("/api/calls/:id/end", auth, async (req,res) => {
+  if(!/^\\d+$/.test(req.params.id)) return res.status(400).json({error:"Invalid call ID."});
+  try {
+    const r=await pool.query("UPDATE call_requests SET status='ended',updated_at=NOW() WHERE id=$1 AND (caller_id=$2 OR callee_id=$2) AND status IN ('ringing','accepted') RETURNING id,status",[req.params.id,req.user.id]);
+    if(!r.rowCount) return res.status(404).json({error:"Call not found or already ended."});
+    res.json({call:r.rows[0]});
+  } catch { res.status(500).json({error:"Could not end call."}); }
 });
 app.post("/api/live/token", auth, async (req,res) => {
   const roomName=String(req.body?.roomName||"").trim();
