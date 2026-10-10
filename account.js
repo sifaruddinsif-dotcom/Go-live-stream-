@@ -46,21 +46,30 @@ $('history').onclick=()=>action(async()=>{
 });
 async function ensureScript(src,globalName){if(window[globalName])return;await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=()=>reject(Error('Could not load media client. Check internet connection.'));document.head.appendChild(s)})}
 async function setupLiveChat(roomId){
- if(!token)return;
+ if(!token)throw Error('Sign in again to connect live chat.');
+ if(!/^\\d+$/.test(String(roomId||'')))throw Error('Live room ID is missing.');
  await ensureScript('https://cdn.socket.io/4.8.1/socket.io.min.js','io');
  if(!socket||!socket.connected){
    if(socket)try{socket.disconnect()}catch{}
-   socket=window.io(endpoint,{auth:{token},transports:['websocket','polling']});
+   socket=window.io(endpoint,{auth:{token},transports:['websocket','polling'],timeout:8000,reconnection:true,reconnectionAttempts:5,reconnectionDelay:800});
    await new Promise((resolve,reject)=>{
-     const timer=setTimeout(()=>reject(Error('Live chat connection timed out.')),8000);
-     socket.once('connect',()=>{clearTimeout(timer);resolve()});
-     socket.once('connect_error',e=>{clearTimeout(timer);reject(Error(e.message||'Live chat connection failed.'))});
+     let settled=false;
+     const finish=(err)=>{if(settled)return;settled=true;clearTimeout(timer);socket.off('connect',onConnect);socket.off('connect_error',onError);err?reject(err):resolve()};
+     const onConnect=()=>finish();
+     const onError=e=>finish(Error('Chat connection failed: '+(e.message||'server unreachable')));
+     const timer=setTimeout(()=>finish(Error('Chat server did not respond within 8 seconds.')),8000);
+     socket.on('connect',onConnect);
+     socket.on('connect_error',onError);
    });
  }
  socket.__activeLiveRoom=String(roomId);
- const joined=await new Promise(resolve=>socket.emit('room:join',{roomId:String(roomId)},resolve));
+ const emitAck=(event,payload)=>new Promise((resolve,reject)=>{
+   const timer=setTimeout(()=>reject(Error(event+' acknowledgement timed out.')),5000);
+   socket.emit(event,payload,result=>{clearTimeout(timer);resolve(result||{});});
+ });
+ const joined=await emitAck('room:join',{roomId:String(roomId)});
  if(joined?.error)throw Error(joined.error);
- const liveJoined=await new Promise(resolve=>socket.emit('live:join',{roomId:String(roomId)},resolve));
+ const liveJoined=await emitAck('live:join',{roomId:String(roomId)});
  if(liveJoined?.error)throw Error(liveJoined.error);
  const countEl=$('host-viewer-count');
  if(countEl){countEl.dataset.count=String(Math.max(0,Number(liveJoined.count||1)-1));countEl.textContent=countEl.dataset.count+' viewers';}
