@@ -3,7 +3,7 @@ const $=id=>document.getElementById(id);
 const safe=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let endpoint=localStorage.getItem('golive_api_endpoint')||'https://go-live-stream-api.onrender.com';
 let token=sessionStorage.getItem('golive_token')||'';
-let mediaClient=null,localTracks=[],socket=null,selectedCallUser=null,activeCallId=null,incomingPoll=null;
+let mediaClient=null,localTracks=[],socket=null,selectedCallUser=null,activeCallId=null,incomingPoll=null,AgoraRTCRef=null,screenTrack=null,musicTrack=null,musicElement=null,musicContext=null,musicObjectUrl=null,currentHostUserId=null,beautyIndex=0,effectIndex=0;
 
 function status(s){
  let el=$('status');
@@ -90,6 +90,7 @@ async function setupLiveChat(roomId){
    if(overlay){const line=document.createElement('div');line.className='host-chat-message';line.textContent=(gift.emoji||'🎁')+' '+String(gift.sender||'Viewer')+' sent '+String(gift.label||gift.gift_key||'a gift');overlay.appendChild(line);while(overlay.children.length>4)overlay.firstElementChild.remove();}
    const history=$('host-gift-history');
    if(history){if(history.textContent==='No gifts yet.')history.textContent='';const item=document.createElement('p');item.textContent=(gift.emoji||'🎁')+' '+String(gift.sender||'Viewer')+' · '+String(gift.label||gift.gift_key)+' ('+String(gift.coins)+' coins)';history.prepend(item);while(history.children.length>10)history.lastElementChild.remove();}
+   const liveBox=document.querySelector('.host-live-ui,.live-viewer-ui');if(liveBox){const burst=document.createElement('div');burst.className='gift-burst';burst.textContent=gift.emoji||'🎁';liveBox.appendChild(burst);setTimeout(()=>burst.remove(),1600);}
  };
  socket.on('live:gift',socket.__liveGiftHandler);
 }
@@ -133,13 +134,14 @@ async function joinMedia(id){
  const data=await call('/api/live/token','POST',{roomName});
  const mod=await import('https://cdn.jsdelivr.net/npm/agora-rtc-sdk-ng@4.24.1/+esm');
  const AgoraRTC=mod.default||mod;
+ AgoraRTCRef=AgoraRTC;
  const box=$('media-view');
  const isHost=data.role==='host' && data.mode==='live';
  const liveTitle=$('room-title')?.value.trim()||'My Live';
  box.innerHTML=isHost
- ? '<div class="host-live-ui"><div class="host-live-top"><button type="button" class="host-exit" id="host-exit" aria-label="Leave live">×</button><div class="host-title-block"><b>'+safe(liveTitle)+'</b><small>🔴 LIVE · <span id="host-viewer-count">0 viewers</span></small></div><button type="button" class="host-share" id="host-share">↗ Share</button></div><div class="host-room-strip"><span>🪙 <b id="host-wallet-balance">100</b> coins</span><span>Room #'+safe(id)+'</span><button type="button" id="host-copy-room">▢ Copy ID</button></div><div id="media-connection-status" class="host-live-status">Connecting to live stream…</div><div id="agora-local" class="host-video"></div><div class="host-chat-overlay" id="host-chat-overlay"><div class="host-chat-message">🎉 Your live has started. Welcome viewers!</div></div><div class="host-hearts" aria-hidden="true">💗<br>💖</div><div class="host-live-bottom"><button type="button" class="host-gift" id="host-gift">🎁<small>Gift</small></button><form class="host-comment-form" id="host-comment-form"><input id="host-comment-input" maxlength="500" placeholder="Write a comment…" aria-label="Write a live comment"><button type="submit" aria-label="Send comment">➤</button></form></div><div id="host-gift-panel" class="host-gift-panel" hidden><b>🎁 Gifts received</b><div id="host-gift-history">No gifts yet.</div><small>Virtual test coins only.</small></div></div><div id="agora-remote" style="display:none"></div>'
- : '<div class="live-viewer-ui"><div id="media-connection-status" class="note" style="margin-bottom:10px">Connecting to '+safe(data.mode==='rtc'?'1-to-1 call':'live stream')+'…</div><div id="agora-local" style="display:block;width:100%;min-height:220px;height:42vh;max-height:420px;border-radius:14px;background:#080611;overflow:hidden"></div><div id="agora-remote" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div><div id="viewer-chat-overlay" class="host-chat-overlay"></div><form class="host-comment-form viewer-comment-form" id="host-comment-form"><input id="host-comment-input" maxlength="500" placeholder="Write a comment…" aria-label="Write a live comment"><button type="submit" aria-label="Send comment">➤</button></form><div class="viewer-gift-bar"><span>🪙 <b id="viewer-wallet-balance">100</b> coins</span><button type="button" id="viewer-gift-open">🎁 Send Gift</button></div><div id="viewer-gift-panel" class="host-gift-panel" hidden><b>Send a gift</b><button type="button" data-send-gift="rose">🌹 Rose · 10</button><button type="button" data-send-gift="heart">💖 Heart · 20</button><button type="button" data-send-gift="crown">👑 Crown · 100</button><small>Promotional test coins only; no cash value.</small></div></div>';
- $('room-id').value=String(id);$('room-id-label').textContent='Connecting to room #'+id+'…';
+ ? '<div class="host-live-ui"><div class="host-live-top"><button type="button" class="host-exit" id="host-exit" aria-label="Leave live">×</button><div class="host-title-block"><b>'+safe(liveTitle)+'</b><small>🔴 LIVE · <span id="host-viewer-count">0 viewers</span></small></div><button type="button" class="host-share" id="host-share">↗ Share</button></div><div class="host-room-strip"><span>🪙 <b id="host-wallet-balance">100</b> coins</span><span>Room #'+safe(id)+'</span><button type="button" id="host-copy-room">▢ Copy ID</button></div><div id="media-connection-status" class="host-live-status">Connecting to live stream…</div><div class="host-feature-bar"><button type="button" id="flip-camera">🔄 Flip</button><button type="button" id="beauty-mode">✨ Beauty</button><button type="button" id="live-effects">🎭 Effects</button><button type="button" id="screen-share">🖥️ Share Screen</button><button type="button" id="live-music">🎵 Music</button><button type="button" id="report-live">🚩 Report</button><input id="live-music-file" type="file" accept="audio/*" hidden></div><div id="agora-local" class="host-video"></div><div class="host-chat-overlay" id="host-chat-overlay"><div class="host-chat-message">🎉 Your live has started. Welcome viewers!</div></div><div class="host-hearts" aria-hidden="true">💗<br>💖</div><div class="host-live-bottom"><button type="button" class="host-gift" id="host-gift">🎁<small>Gift</small></button><form class="host-comment-form" id="host-comment-form"><input id="host-comment-input" maxlength="500" placeholder="Write a comment…" aria-label="Write a live comment"><button type="submit" aria-label="Send comment">➤</button></form></div><div id="host-gift-panel" class="host-gift-panel" hidden><b>🎁 Gifts received</b><div id="host-gift-history">No gifts yet.</div><small>Virtual test coins only.</small></div></div><div id="agora-remote" style="display:none"></div>'
+ : '<div class="live-viewer-ui"><div id="media-connection-status" class="note" style="margin-bottom:10px">Connecting to '+safe(data.mode==='rtc'?'1-to-1 call':'live stream')+'…</div><div class="host-follow-row"><button type="button" id="follow-host">＋ Follow Host</button><button type="button" class="live-action-btn" id="report-live">🚩 Report Live</button></div><div id="agora-local" style="display:block;width:100%;min-height:220px;height:42vh;max-height:420px;border-radius:14px;background:#080611;overflow:hidden"></div><div id="agora-remote" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div><div id="viewer-chat-overlay" class="host-chat-overlay"></div><form class="host-comment-form viewer-comment-form" id="host-comment-form"><input id="host-comment-input" maxlength="500" placeholder="Write a comment…" aria-label="Write a live comment"><button type="submit" aria-label="Send comment">➤</button></form><div class="viewer-gift-bar"><span>🪙 <b id="viewer-wallet-balance">100</b> coins</span><button type="button" id="viewer-gift-open">🎁 Send Gift</button></div><div id="viewer-gift-panel" class="host-gift-panel" hidden><b>Send a gift</b><button type="button" data-send-gift="rose">🌹 Rose · 10</button><button type="button" data-send-gift="heart">💖 Heart · 20</button><button type="button" data-send-gift="crown">👑 Crown · 100</button><small>Promotional test coins only; no cash value.</small></div></div>';
+ $('room-id').value=String(id);$('room-id-label').textContent='Connecting to room #'+id+'…';currentHostUserId=data.hostUserId||null;
  if(isHost){
    $('host-exit').onclick=()=>$('leave-media').click();
    $('host-share').onclick=async()=>{try{await navigator.share({title:'FUN LIVE',text:'Join my live stream on FUN LIVE. Room #'+id,url:location.href})}catch(e){if(e.name!=='AbortError')status('Share cancelled or unavailable. Use Copy ID to share room #'+id)}};
@@ -188,6 +190,7 @@ async function joinMedia(id){
      const connectionStatus=$('media-connection-status');
      if(connectionStatus)connectionStatus.textContent='Connected. Waiting for the host video…';
      if(data.mode==='live')try{await setupLiveChat(id)}catch(chatError){status('Connected to stream, but comments are offline: '+(chatError.message||'chat unavailable'))}
+     if(data.mode==='live')loadFollowState().catch(()=>{});
      status('✅ Joined live stream. Waiting for the host video…');
    }
  }catch(e){
@@ -199,6 +202,11 @@ async function joinMedia(id){
  $('leave-media').hidden=false;$('toggle-mic').disabled=data.role!=='host';$('toggle-camera').disabled=data.role!=='host';
 }
 async function leaveMedia(){
+ if(screenTrack&&mediaClient){try{await mediaClient.unpublish([screenTrack])}catch{}try{screenTrack.stop();screenTrack.close()}catch{}screenTrack=null;}
+ if(musicTrack&&mediaClient){try{await mediaClient.unpublish([musicTrack])}catch{}try{musicTrack.stop();musicTrack.close()}catch{}musicTrack=null;}
+ if(musicElement){try{musicElement.pause();musicElement.src='';}catch{}musicElement=null;}
+ if(musicContext){try{await musicContext.close()}catch{}musicContext=null;}
+ if(musicObjectUrl){URL.revokeObjectURL(musicObjectUrl);musicObjectUrl=null;}
  if(socket&&socket.connected&&socket.__activeLiveRoom){
    const oldRoom=socket.__activeLiveRoom;
    await new Promise(resolve=>socket.emit('live:leave',{roomId:oldRoom},resolve));
