@@ -228,7 +228,7 @@ app.post("/api/live/token", auth, async (req,res) => {
   const certificate=process.env.AGORA_APP_CERTIFICATE;
   if (!appId || !certificate) return res.status(503).json({error:"Agora is not configured yet. Add AGORA_APP_ID and AGORA_APP_CERTIFICATE to the backend environment."});
   try {
-    const match=roomName.match(/^room-(\\d+)$/);
+    const match=roomName.match(/^room-(\d+)$/);
     if (!match) return res.status(400).json({error:"Room name is invalid."});
     const roomId=match[1];
     const roomResult=await pool.query("SELECT id,kind,owner_id FROM rooms WHERE id=$1",[roomId]);
