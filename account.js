@@ -111,8 +111,14 @@ document.addEventListener('submit',async e=>{
  if(!body)return;
  const roomId=$('room-id')?.value.trim()||socket?.__activeLiveRoom||'';
  if(!socket||!socket.connected){
-   status('Comment not sent: chat is reconnecting. Your live is still running.');
-   return;
+   const note=document.createElement('div');
+   note.className='live-comment-notice';
+   note.setAttribute('role','status');
+   note.style.cssText='padding:8px;margin-top:6px;border:1px solid #ff3297;border-radius:10px;background:#24132e;color:#fff;font-size:12px';
+   note.textContent='Reconnecting live chat…';
+   form.insertAdjacentElement('afterend',note);
+   try{await setupLiveChat(roomId)}catch(err){note.textContent='Comment not sent: '+(err.message||'chat is offline')+'. Live remains on.';return;}
+   if(!socket||!socket.connected){note.textContent='Comment not sent: chat is offline. Live remains on.';return;}
  }
  if(!/^\d+$/.test(roomId)){
    status('Comment not sent: live room ID is missing.');
@@ -131,8 +137,12 @@ document.addEventListener('submit',async e=>{
      if(socket.__liveChatHandler)socket.__liveChatHandler(sent);
    }
    input.value='';
+   const note=form.parentElement?.querySelector('.live-comment-notice')||form.nextElementSibling;
+   if(note?.classList.contains('live-comment-notice'))note.textContent='✓ Comment sent';
  }catch(err){
-   status('Comment not sent: '+(err.message||'Try again.')+'. Your live should remain active.');
+   let note=form.parentElement?.querySelector('.live-comment-notice')||form.nextElementSibling;
+   if(!note||!note.classList.contains('live-comment-notice')){note=document.createElement('div');note.className='live-comment-notice';note.style.cssText='padding:8px;margin-top:6px;border:1px solid #ff3297;border-radius:10px;background:#24132e;color:#fff;font-size:12px';form.insertAdjacentElement('afterend',note);}
+   note.textContent='Comment not sent: '+(err.message||'Try again.')+'. Your live should remain active.';
  }finally{
    if(send)send.disabled=false;
  }
