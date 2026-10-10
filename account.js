@@ -90,9 +90,12 @@ async function setupLiveChat(roomId){
      if(id&&overlay.querySelector('[data-message-id="'+CSS.escape(id)+'"]'))return;
      const line=document.createElement('div');line.className='host-chat-message';
      if(id)line.dataset.messageId=id;
-     const name=document.createElement('b');name.textContent=String(message.username||'User')+': ';
+     const name=document.createElement('b');name.textContent=String(message.username||'User')+' ';
+     name.style.cssText='font-weight:800;color:#fff';
+     const level=document.createElement('span');level.textContent='Lv.1';level.setAttribute('aria-label','Level 1');level.style.cssText='display:inline-block;margin:0 5px 0 2px;padding:1px 6px;border-radius:8px;background:linear-gradient(90deg,#ff329d,#8b5cf6);color:#fff;font-size:10px;font-weight:800;vertical-align:middle';
+     const colon=document.createTextNode(': ');
      const body=document.createElement('span');body.textContent=String(message.body||'');
-     line.append(name,body);overlay.appendChild(line);
+     line.append(name,level,colon,body);overlay.appendChild(line);
      while(overlay.children.length>4)overlay.firstElementChild.remove();
    });
  };
