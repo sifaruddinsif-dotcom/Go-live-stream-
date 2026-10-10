@@ -152,15 +152,22 @@ document.addEventListener('submit',async e=>{
  if(send)send.disabled=true;
  try{
    const result=await new Promise((resolve,reject)=>{
-     const timer=setTimeout(()=>reject(Error('Chat reply timed out.')),5000);
-     socket.emit('room:message',{roomId,body},result=>{clearTimeout(timer);resolve(result)});
+     let settled=false;
+     const finish=(err,value)=>{if(settled)return;settled=true;clearTimeout(timer);socket.off('room:message',onBroadcast);err?reject(err):resolve(value)};
+     const onBroadcast=message=>{
+       if(String(message.room_id??message.roomId??'')===String(roomId)&&String(message.body||'')===body)finish(null,{ok:true,message,confirmedByBroadcast:true});
+     };
+     const timer=setTimeout(()=>finish(Error('Chat delivery was not confirmed. Please check the chat before retrying.')),12000);
+     socket.on('room:message',onBroadcast);
+     socket.emit('room:message',{roomId,body},result=>{
+       if(result?.error)return finish(Error(result.error));
+       if(result?.message)return finish(null,result);
+       // If the broadcast arrived but the acknowledgement was empty, the broadcast is enough to confirm delivery.
+       if(result?.ok)return finish(null,result);
+     });
    });
    if(result?.error)throw Error(result.error);
-   if(result?.message){
-     const sent=result.message;
-     // Ensure the sender sees the comment immediately; the room broadcast is de-duplicated by message ID.
-     if(socket.__liveChatHandler)socket.__liveChatHandler(sent);
-   }
+   if(result?.message && socket.__liveChatHandler)socket.__liveChatHandler(result.message);
    input.value='';
    const note=form.parentElement?.querySelector('.live-comment-notice')||form.nextElementSibling;
    if(note?.classList.contains('live-comment-notice'))note.textContent='✓ Comment sent';
