@@ -84,7 +84,32 @@ async function initDb() {
       coins BIGINT NOT NULL CHECK(coins > 0),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-    CREATE INDEX IF NOT EXISTS live_gifts_room_created_idx ON live_gifts(room_id,created_at DESC);
+    CREATE INDEX IF NOT EXISTS live_gifts_room_created_idx ON live_gifts(room_id,created_at DESC);\n    CREATE TABLE IF NOT EXISTS follows (
+      follower_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      following_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY(follower_id,following_id),
+      CHECK(follower_id<>following_id)
+    );
+    CREATE INDEX IF NOT EXISTS follows_following_idx ON follows(following_id,created_at DESC);
+    CREATE TABLE IF NOT EXISTS live_reports (
+      id BIGSERIAL PRIMARY KEY,
+      room_id BIGINT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+      reporter_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      reason VARCHAR(80) NOT NULL,
+      details VARCHAR(500) NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS payment_orders (
+      order_id VARCHAR(80) PRIMARY KEY,
+      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      amount_paise INTEGER NOT NULL,
+      coins BIGINT NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'created' CHECK(status IN ('created','paid','failed')),
+      payment_id VARCHAR(100) UNIQUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      paid_at TIMESTAMPTZ
+    );
   `);
 }
 function tokenFor(user) { return jwt.sign({ sub: String(user.id), username: user.username }, JWT_SECRET, { expiresIn: "7d", issuer: "go-live-stream" }); }
@@ -348,21 +373,24 @@ app.post("/api/live/token", auth, async (req,res) => {
     const isHost=isCall || String(roomResult.rows[0].owner_id)===String(req.user.id);
     const privilegeExpiredTs=Math.floor(Date.now()/1000)+3600;
     const rtcToken=RtcTokenBuilder.buildTokenWithUid(appId,certificate,roomName,uid,RTC_ROLE_PUBLISHER,privilegeExpiredTs);
-    res.json({appId,channelName:roomName,token:rtcToken,uid,role:isHost?"host":"audience",mode:isCall?"rtc":"live"});
+    res.json({appId,channelName:roomName,token:rtcToken,uid,role:isHost?"host":"audience",mode:isCall?"rtc":"live",hostUserId:Number(roomResult.rows[0].owner_id)});
   } catch (e) {
     console.error("Agora token generation failed:",e?.message||"unknown error");
     res.status(500).json({error:"Could not create Agora media token. Check Agora App ID and Certificate configuration."});
   }
 });
+const COIN_PACKAGES = Object.freeze({9900:900,49900:5000,99900:10500,499000:55000});
 app.post("/api/payments/order", auth, async (req,res) => {
   const amount=Number(req.body?.amountPaise);
-  if (!Number.isInteger(amount) || amount<100 || amount>1000000) return res.status(400).json({error:"Invalid order amount. Amount must be 100–1,000,000 paise."});
-  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) return res.status(503).json({error:"Payment gateway is not configured. Add Razorpay credentials after account verification."});
+  const coins=COIN_PACKAGES[amount];
+  if (!Number.isInteger(amount) || !coins) return res.status(400).json({error:"Choose one of the available coin packages."});
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) return res.status(503).json({error:"Coin purchase is not enabled yet. Razorpay credentials must be configured securely on the server."});
   try {
     const razorpay=new Razorpay({key_id:process.env.RAZORPAY_KEY_ID,key_secret:process.env.RAZORPAY_KEY_SECRET});
-    const order=await razorpay.orders.create({amount,currency:"INR",receipt:"gls_"+req.user.id+"_"+Date.now(),notes:{userId:String(req.user.id),purpose:"coin_topup_pending_verification"}});
-    res.status(201).json({orderId:order.id,amount:order.amount,currency:order.currency,keyId:process.env.RAZORPAY_KEY_ID,notice:"Do not credit coins until payment signature and webhook are verified."});
-  } catch { res.status(502).json({error:"Payment provider could not create an order."}); }
+    const order=await razorpay.orders.create({amount,currency:"INR",receipt:"gls_"+req.user.id+"_"+Date.now(),notes:{userId:String(req.user.id),coins:String(coins),purpose:"fun_live_coin_topup"}});
+    await pool.query("INSERT INTO payment_orders(order_id,user_id,amount_paise,coins) VALUES($1,$2,$3,$4)",[order.id,req.user.id,amount,coins]);
+    res.status(201).json({orderId:order.id,amount:order.amount,currency:order.currency,keyId:process.env.RAZORPAY_KEY_ID,coins});
+  } catch(e) {console.error("Payment order creation failed:",e?.message||"unknown error");res.status(502).json({error:"Payment provider could not create an order."});}
 });
 app.post("/api/payments/verify", auth, async (req,res) => {
   const {orderId,paymentId,signature}=req.body||{};
@@ -370,7 +398,26 @@ app.post("/api/payments/verify", auth, async (req,res) => {
   const expected=crypto.createHmac("sha256",process.env.RAZORPAY_KEY_SECRET).update(String(orderId)+"|"+String(paymentId)).digest("hex");
   const a=Buffer.from(expected); const b=Buffer.from(String(signature));
   if(a.length!==b.length||!crypto.timingSafeEqual(a,b)) return res.status(400).json({error:"Payment signature invalid."});
-  res.status(200).json({verified:true,notice:"Signature verified. Coin crediting is intentionally disabled until idempotent ledger/webhook processing is enabled."});
+  const client=await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const order=await client.query("SELECT order_id,user_id,amount_paise,coins,status,payment_id FROM payment_orders WHERE order_id=$1 AND user_id=$2 FOR UPDATE",[String(orderId),req.user.id]);
+    if(!order.rowCount){await client.query("ROLLBACK");return res.status(404).json({error:"Payment order not found for this account."});}
+    const row=order.rows[0];
+    if(row.status==="paid"){
+      if(row.payment_id!==String(paymentId)){await client.query("ROLLBACK");return res.status(409).json({error:"Order already credited against another payment."});}
+      const bal=await client.query("SELECT balance FROM wallet_accounts WHERE user_id=$1",[req.user.id]);
+      await client.query("COMMIT");return res.json({verified:true,alreadyCredited:true,balance:Number(bal.rows[0]?.balance||0),coins:Number(row.coins)});
+    }
+    await client.query("INSERT INTO wallet_accounts(user_id,balance) VALUES($1,100) ON CONFLICT(user_id) DO NOTHING",[req.user.id]);
+    await client.query("UPDATE wallet_accounts SET balance=balance+$1,updated_at=NOW() WHERE user_id=$2",[Number(row.coins),req.user.id]);
+    await client.query("INSERT INTO wallet_transactions(user_id,amount,kind,reference) VALUES($1,$2,'coin_purchase',$3)",[req.user.id,Number(row.coins),String(orderId)]);
+    await client.query("UPDATE payment_orders SET status='paid',payment_id=$1,paid_at=NOW() WHERE order_id=$2",[String(paymentId),String(orderId)]);
+    const bal=await client.query("SELECT balance FROM wallet_accounts WHERE user_id=$1",[req.user.id]);
+    await client.query("COMMIT");
+    res.json({verified:true,balance:Number(bal.rows[0].balance),coins:Number(row.coins)});
+  } catch(e) {await client.query("ROLLBACK").catch(()=>{});console.error("Payment verification failed:",e?.message||"unknown error");res.status(500).json({error:"Could not credit verified payment."});}
+  finally {client.release();}
 });
 app.get("/api/rooms", async (_req,res) => {
   try { const r=await pool.query("SELECT r.id,r.title,r.kind,r.created_at,u.username AS host FROM rooms r JOIN users u ON u.id=r.owner_id ORDER BY r.created_at DESC LIMIT 100"); res.json({ rooms:r.rows }); }
