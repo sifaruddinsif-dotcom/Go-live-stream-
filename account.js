@@ -282,7 +282,7 @@ async function joinMedia(id){
      const connectionStatus=$('media-connection-status');
      if(connectionStatus)connectionStatus.textContent='🔴 LIVE · Camera and microphone connected';
      status('✅ Agora connected. Your camera and microphone are live.');
-     try{await setupLiveChat(id)}catch(chatError){status('Live is running, but comments are offline: '+(chatError.message||'chat unavailable'))}
+     if(data.mode==='live')try{await setupLiveChat(id)}catch(chatError){status('Live is running, but comments are offline: '+(chatError.message||'chat unavailable'))}
    }else{
      const connectionStatus=$('media-connection-status');
      if(connectionStatus)connectionStatus.textContent='Connected. Waiting for the host video…';
