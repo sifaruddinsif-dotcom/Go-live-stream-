@@ -85,6 +85,36 @@ io.use((socket, next) => {
   } catch { next(new Error("Invalid session")); }
 });
 io.on("connection", socket => {
+  socket.on("live:join", async ({ roomId } = {}, done = () => {}) => {
+    try {
+      if (!/^\\d+$/.test(String(roomId || ""))) return done({ error: "Invalid live room." });
+      const r = await pool.query("SELECT id,kind FROM rooms WHERE id=$1", [roomId]);
+      if (!r.rowCount || r.rows[0].kind !== "live") return done({ error: "Live room not found." });
+      const liveRoom = "live:" + roomId;
+      await socket.join(liveRoom);
+      const count = (await io.in(liveRoom).fetchSockets()).length;
+      io.to(liveRoom).emit("live:count", { roomId: String(roomId), count });
+      done({ ok: true, count });
+    } catch { done({ error: "Could not join live room." }); }
+  });
+  socket.on("live:leave", async ({ roomId } = {}, done = () => {}) => {
+    const liveRoom = "live:" + String(roomId || "");
+    await socket.leave(liveRoom);
+    const count = (await io.in(liveRoom).fetchSockets()).length;
+    io.to(liveRoom).emit("live:count", { roomId: String(roomId), count });
+    done({ ok: true, count });
+  });
+  socket.on("disconnecting", async () => {
+    for (const roomName of socket.rooms) {
+      if (roomName.startsWith("live:")) {
+        const roomId = roomName.slice(5);
+        setTimeout(async () => {
+          const count = (await io.in(roomName).fetchSockets()).length;
+          io.to(roomName).emit("live:count", { roomId, count });
+        }, 0);
+      }
+    }
+  });
   socket.on("room:join", async ({ roomId } = {}, done = () => {}) => {
     if (!/^\d+$/.test(String(roomId || ""))) return done({ error: "Invalid room." });
     const r = await pool.query("SELECT id FROM rooms WHERE id=$1", [roomId]);
