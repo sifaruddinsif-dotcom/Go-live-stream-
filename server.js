@@ -477,6 +477,46 @@ app.post("/api/withdrawals", auth, async (req,res) => {
   } catch(e){await client.query("ROLLBACK").catch(()=>{});res.status(500).json({error:"Could not submit withdrawal request."});}
   finally{client.release();}
 });
+// Admin-only withdrawal management. Configure ADMIN_USER_IDS with comma-separated numeric user IDs.
+function requireAdmin(req,res,next){
+  const allowed=String(process.env.ADMIN_USER_IDS||"").split(",").map(x=>x.trim()).filter(Boolean);
+  if(!allowed.length) return res.status(503).json({error:"Admin panel is not configured. Set ADMIN_USER_IDS in the backend environment."});
+  if(!allowed.includes(String(req.user.id))) return res.status(403).json({error:"Admin access required."});
+  next();
+}
+app.get("/api/admin/withdrawals",auth,requireAdmin,async(req,res)=>{
+  const status=String(req.query.status||"all");
+  if(!["all","pending","approved","paid","rejected"].includes(status)) return res.status(400).json({error:"Invalid status filter."});
+  try{
+    const result=await pool.query(
+      "SELECT w.id,w.user_id,u.username,u.email,w.diamonds,w.usd_amount,w.usd_inr_rate,w.inr_amount,w.payout_details,w.status,w.created_at,w.updated_at FROM withdrawal_requests w JOIN users u ON u.id=w.user_id "+(status==="all"?"":"WHERE w.status=$1 ")+"ORDER BY w.created_at DESC LIMIT 200",
+      status==="all"?[]:[status]
+    );
+    res.json({withdrawals:result.rows});
+  }catch{res.status(500).json({error:"Could not load withdrawal requests."});}
+});
+app.patch("/api/admin/withdrawals/:id",auth,requireAdmin,async(req,res)=>{
+  if(!/^\\d+$/.test(req.params.id)) return res.status(400).json({error:"Invalid withdrawal ID."});
+  const nextStatus=String(req.body?.status||"");
+  if(!["approved","rejected","paid"].includes(nextStatus)) return res.status(400).json({error:"Status must be approved, rejected, or paid."});
+  const client=await pool.connect();
+  try{
+    await client.query("BEGIN");
+    const found=await client.query("SELECT * FROM withdrawal_requests WHERE id=$1 FOR UPDATE",[req.params.id]);
+    if(!found.rowCount){await client.query("ROLLBACK");return res.status(404).json({error:"Withdrawal request not found."});}
+    const w=found.rows[0];
+    if(w.status==="paid"||w.status==="rejected"){await client.query("ROLLBACK");return res.status(409).json({error:"Paid or rejected requests cannot be changed."});}
+    if(nextStatus==="paid"&&w.status!=="approved"){await client.query("ROLLBACK");return res.status(409).json({error:"Approve the request before marking it paid. Confirm the real transfer first."});}
+    if(nextStatus==="rejected"){
+      await client.query("INSERT INTO diamond_accounts(user_id,balance) VALUES($1,0) ON CONFLICT(user_id) DO NOTHING",[w.user_id]);
+      await client.query("UPDATE diamond_accounts SET balance=balance+$1,updated_at=NOW() WHERE user_id=$2",[w.diamonds,w.user_id]);
+    }
+    const updated=await client.query("UPDATE withdrawal_requests SET status=$1,updated_at=NOW() WHERE id=$2 RETURNING id,user_id,diamonds,usd_amount,inr_amount,status,updated_at",[nextStatus,w.id]);
+    await client.query("COMMIT");
+    res.json({withdrawal:updated.rows[0],notice:nextStatus==="paid"?"Marked paid by admin. Ensure the UPI/bank transfer was completed separately.":nextStatus==="rejected"?"Request rejected; diamonds refunded to the user's balance.":"Request approved. This does not transfer money automatically."});
+  }catch(e){await client.query("ROLLBACK").catch(()=>{});res.status(500).json({error:"Could not update withdrawal status."});}
+  finally{client.release();}
+});
 app.post("/api/calls/:id/end", auth, async (req,res) => {
   if(!/^\d+$/.test(req.params.id)) return res.status(400).json({error:"Invalid call ID."});
   try {
