@@ -41,6 +41,7 @@ async function initDb() {
       email VARCHAR(254) UNIQUE NOT NULL, password_hash TEXT NOT NULL,
       bio VARCHAR(160) NOT NULL DEFAULT '', created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(16) NOT NULL DEFAULT 'unspecified';
     CREATE TABLE IF NOT EXISTS rooms (
       id BIGSERIAL PRIMARY KEY, owner_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
       title VARCHAR(100) NOT NULL, kind VARCHAR(16) NOT NULL CHECK(kind IN ('voice','live')),
@@ -331,8 +332,9 @@ app.post("/api/auth/register", async (req, res) => {
         username = (base.slice(0, 34) + "_" + suffix).slice(0, 40);
       }
     }
+    const gender = ["male","female","other"].includes(String(req.body?.gender||"").toLowerCase()) ? String(req.body.gender).toLowerCase() : "unspecified";
     const hash = await bcrypt.hash(password, 12);
-    const result = await pool.query("INSERT INTO users(username,email,password_hash) VALUES($1,$2,$3) RETURNING id,username,email,bio,created_at", [username,email,hash]);
+    const result = await pool.query("INSERT INTO users(username,email,password_hash,gender) VALUES($1,$2,$3,$4) RETURNING id,username,email,bio,gender,created_at", [username,email,hash,gender]);
     res.status(201).json({ user: result.rows[0], token: tokenFor(result.rows[0]) });
   } catch (e) {
     if (e.code === "23505") return res.status(409).json({ error: "This email or username is already registered. Please log in instead." });
