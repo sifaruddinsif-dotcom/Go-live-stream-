@@ -2,7 +2,7 @@
 const $=id=>document.getElementById(id);
 const safe=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let endpoint=localStorage.getItem('golive_api_endpoint')||'https://go-live-stream-api.onrender.com';
-let token=sessionStorage.getItem('golive_token')||'';
+let token=sessionStorage.getItem('golive_token')||localStorage.getItem('golive_token')||'';
 let mediaClient=null,localTracks=[],socket=null,selectedCallUser=null,activeCallId=null,incomingPoll=null,AgoraRTCRef=null,screenTrack=null,musicTrack=null,musicElement=null,musicContext=null,musicObjectUrl=null,currentHostUserId=null,beautyIndex=0,effectIndex=0;
 
 let giftSoundEnabled=localStorage.getItem('fun_live_gift_sound')!=='off';
@@ -60,11 +60,11 @@ async function action(fn){try{await fn()}catch(e){status('⚠️ '+(e.message||'
 function accountLabel(user){const u=typeof user==='string'?{username:user}:user; $('account').textContent='Signed in as '+u.username+(u.id?' · FUN LIVE ID: '+String(7000000+Number(u.id)):''); if(u.id){localStorage.setItem('golive_user',JSON.stringify({id:u.id,username:u.username,email:u.email||''}));$('logout').hidden=false;}else $('logout').hidden=true;}
 $('register').onclick=()=>action(async()=>{
  const r=await call('/api/auth/register','POST',{email:$('email').value,password:$('password').value,gender:$('register-gender')?.value||'unspecified'});
- token=r.token;sessionStorage.setItem('golive_token',token);accountLabel(r.user);$('password').value='';$('profile-gender').value=r.user.gender||$('register-gender').value;status('Account created with email. You are signed in.');window.location.replace('index.html');
+ token=r.token;sessionStorage.setItem('golive_token',token);localStorage.setItem('golive_token',token);accountLabel(r.user);$('password').value='';$('profile-gender').value=r.user.gender||$('register-gender').value;status('Account created with email. You are signed in.');window.location.replace('account.html#rooms');
 });
 $('login').onclick=()=>action(async()=>{
  const r=await call('/api/auth/login','POST',{email:$('email').value,password:$('password').value});
- token=r.token;sessionStorage.setItem('golive_token',token);accountLabel(r.user);await loadProfileGender();status('Signed in successfully.');window.location.replace('index.html');
+ token=r.token;sessionStorage.setItem('golive_token',token);localStorage.setItem('golive_token',token);accountLabel(r.user);await loadProfileGender();status('Signed in successfully.');window.location.replace('account.html#rooms');
 });
 async function loadWithdrawalSummary(){
  const box=$('withdrawal-summary');if(!box)return;
@@ -118,7 +118,7 @@ $('save-gender').onclick=()=>action(async()=>{
  status('Profile gender saved.');
 });
 async function loadProfileGender(){try{const r=await call('/api/me');if(r.user?.gender)$('profile-gender').value=r.user.gender;}catch{} await loadWithdrawalSummary();}
-$('logout').onclick=async()=>{await leaveMedia();token='';sessionStorage.removeItem('golive_token');accountLabel('Signed out.');localStorage.removeItem('golive_user');status('You have signed out.')};
+$('logout').onclick=async()=>{await leaveMedia();token='';sessionStorage.removeItem('golive_token');localStorage.removeItem('golive_token');accountLabel('Signed out.');localStorage.removeItem('golive_user');status('You have signed out.')};
 $('refresh').onclick=()=>action(async()=>{
  const r=await call('/api/rooms');const lives=r.rooms.filter(x=>x.kind==='live');$('room-list').innerHTML=lives.length?lives.map(x=>'<div class="row"><span>'+safe(x.title)+'</span><small>Live #'+safe(x.id)+' · '+safe(x.host)+'</small><button class="primary" data-join="'+safe(x.id)+'">Watch Live</button></div>').join(''):'<p>No live streams right now.</p>';status('Live streams refreshed.');
 });
@@ -613,7 +613,7 @@ $('send').onclick=()=>action(async()=>{
 async function enterGuestMode(){
  try{
   const r=await call('/api/auth/guest','POST',{});
-  token=r.token;sessionStorage.setItem('golive_token',token);accountLabel(r.user);
+  token=r.token;sessionStorage.setItem('golive_token',token);localStorage.setItem('golive_token',token);accountLabel(r.user);
   const hero=document.querySelector('.login-hero'),panel=document.querySelector('.login-panel'),rooms=$('rooms'),chat=$('room-chat');
   if(hero)hero.style.display='none';if(panel)panel.style.display='none';if(rooms)rooms.style.display='block';if(chat)chat.style.display='block';
   status('Welcome to FUN LIVE! You are in guest mode. Your FUN LIVE ID: '+String(7000000+Number(r.user.id)));
@@ -1128,7 +1128,7 @@ $('send').onclick=()=>action(async()=>{
 async function enterGuestMode(){
  try{
   const r=await call('/api/auth/guest','POST',{});
-  token=r.token;sessionStorage.setItem('golive_token',token);accountLabel(r.user);
+  token=r.token;sessionStorage.setItem('golive_token',token);localStorage.setItem('golive_token',token);accountLabel(r.user);
   const hero=document.querySelector('.login-hero'),panel=document.querySelector('.login-panel'),rooms=$('rooms'),chat=$('room-chat');
   if(hero)hero.style.display='none';if(panel)panel.style.display='none';if(rooms)rooms.style.display='block';if(chat)chat.style.display='block';
   status('Welcome to FUN LIVE! You are in guest mode. Your FUN LIVE ID: '+String(7000000+Number(r.user.id)));
@@ -1652,7 +1652,7 @@ $('send').onclick=()=>action(async()=>{
 async function enterGuestMode(){
  try{
   const r=await call('/api/auth/guest','POST',{});
-  token=r.token;sessionStorage.setItem('golive_token',token);accountLabel(r.user);
+  token=r.token;sessionStorage.setItem('golive_token',token);localStorage.setItem('golive_token',token);accountLabel(r.user);
   const hero=document.querySelector('.login-hero'),panel=document.querySelector('.login-panel'),rooms=$('rooms'),chat=$('room-chat');
   if(hero)hero.style.display='none';if(panel)panel.style.display='none';if(rooms)rooms.style.display='block';if(chat)chat.style.display='block';
   status('Welcome to FUN LIVE! You are in guest mode. Your FUN LIVE ID: '+String(7000000+Number(r.user.id)));
