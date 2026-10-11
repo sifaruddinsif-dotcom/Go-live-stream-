@@ -219,7 +219,7 @@ body:has(.private-call-ui) .controls{display:none!important}
    try{const r=await fetch(endpoint+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});const j=await r.json().catch(()=>({}));
      if(!r.ok)throw Error(j.error||'Login nahi hua. Email/password check karein.');
      sessionStorage.setItem('golive_token',j.token);localStorage.setItem('golive_user',JSON.stringify({id:j.user.id,username:j.user.username,email:j.user.email||''}));
-     say('Login successful. FUN LIVE account connected.');$('account').textContent='Signed in as '+j.user.username+' · GO LIVE ID: GLS'+String(j.user.id).padStart(8,'0');
+     say('Login successful. FUN LIVE account connected.');$('account').textContent='Signed in as '+j.user.username+' · GO LIVE ID: GLS'+String(j.user.id).padStart(8,'0');window.location.replace('index.html');
    }catch(e){say('Login error: '+(e.message||'Network error. Page refresh karke try karein.'));}
  });
  $('register').addEventListener('click',async()=>{
@@ -230,7 +230,7 @@ body:has(.private-call-ui) .controls{display:none!important}
    try{const r=await fetch(endpoint+'/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,gender})});const j=await r.json().catch(()=>({}));
      if(!r.ok)throw Error(j.error||'Account create nahi hua.');
      sessionStorage.setItem('golive_token',j.token);localStorage.setItem('golive_user',JSON.stringify({id:j.user.id,username:j.user.username,email:j.user.email||''}));
-     say('Account create ho gaya! Aap signed in hain.');$('account').textContent='Signed in as '+j.user.username+' · GO LIVE ID: GLS'+String(j.user.id).padStart(8,'0');
+     say('Account create ho gaya! Aap signed in hain.');$('account').textContent='Signed in as '+j.user.username+' · GO LIVE ID: GLS'+String(j.user.id).padStart(8,'0');window.location.replace('index.html');
    }catch(e){say('Register error: '+(e.message||'Network error. Internet check karke refresh karein.'));}
  });
 })();
