@@ -313,8 +313,9 @@ async function joinMedia(id){
  if(data.mode==='rtc'){
    setupPrivateCallPrivacy();
    const callStatus=$('private-call-status');if(callStatus)callStatus.textContent='🔒 Encrypted room · Connected';
-   let elapsed=0;clearInterval(window.__funPrivateCallTimer);
+   let elapsed=0;clearInterval(window.__funPrivateCallTimer);clearInterval(window.__funCallBillingTimer);
    window.__funPrivateCallTimer=setInterval(()=>{elapsed++;const t=$('private-call-timer');if(t)t.textContent=String(Math.floor(elapsed/60)).padStart(2,'0')+':'+String(elapsed%60).padStart(2,'0');},1000);
+   window.__funCallBillingTimer=setInterval(async()=>{try{const bill=await call('/api/calls/'+activeCallId+'/bill-minute','POST',{});status('Call minute '+bill.billedMinutes+' · '+bill.charged+' coins charged. Balance: '+bill.balance);}catch(err){if(/Not enough coins|Call is not active|Only the caller/i.test(err.message)){clearInterval(window.__funCallBillingTimer);await leaveMedia().catch(()=>{});status(err.message||'Call ended because coins are insufficient.');}}},60000);
    $('private-call-close').onclick=()=>$('private-end-call').click();
    $('private-end-call').onclick=()=>$('leave-media').click();
    $('private-toggle-mic').onclick=()=>action(async()=>{if(!localTracks[0])throw Error('Microphone is not ready.');const enabled=localTracks[0].enabled;await localTracks[0].setEnabled(!enabled);$('private-toggle-mic').textContent=enabled?'🎙️ Unmute':'🎙️ Mute';});
@@ -323,7 +324,7 @@ async function joinMedia(id){
  }
 }
 async function leaveMedia(){
- clearInterval(window.__funPrivateCallTimer);window.__funPrivateCallTimer=null;
+ clearInterval(window.__funPrivateCallTimer);window.__funPrivateCallTimer=null;clearInterval(window.__funCallBillingTimer);window.__funCallBillingTimer=null;
  if(screenTrack&&mediaClient){try{await mediaClient.unpublish([screenTrack])}catch{}try{screenTrack.stop();screenTrack.close()}catch{}screenTrack=null;}
  if(musicTrack&&mediaClient){try{await mediaClient.unpublish([musicTrack])}catch{}try{musicTrack.stop();musicTrack.close()}catch{}musicTrack=null;}
  if(musicElement){try{musicElement.pause();musicElement.src='';}catch{}musicElement=null;}
