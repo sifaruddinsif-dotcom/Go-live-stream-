@@ -621,7 +621,7 @@ async function enterGuestMode(){
  }catch(e){status('Guest access could not start: '+(e.message||'Please refresh and try again.'))}
 }
 if(token&&endpoint)action(async()=>{const r=await call('/api/me');accountLabel(r.user);});
-if(!token)enterGuestMode();
+// Do not auto-create a guest session: it hides the registration form before users can register.
 action(async()=>{const r=await call('/health');if(!token)status(r.ok&&r.database==='connected'?'Starting GO LIVE guest mode…':'API health check failed.');});
 })();+r.estimatedUSD+' / ₹'+r.estimatedINR;
   const hist=$('withdrawal-history');
