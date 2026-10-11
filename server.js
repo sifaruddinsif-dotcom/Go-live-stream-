@@ -653,6 +653,16 @@ app.get("/api/admin/agency-applications",auth,requireAdmin,async(req,res)=>{
     res.json({applications:r.rows});
   }catch(err){console.error("Agency application list failed",err);res.status(500).json({error:"Could not load agency applications."});}
 });
+app.patch("/api/admin/agency-applications/:id",auth,requireAdmin,async(req,res)=>{
+  const id=String(req.params.id||"");
+  const status=String(req.body?.status||"");
+  if(!/^\d+$/.test(id)||!["approved","rejected"].includes(status))return res.status(400).json({error:"Choose approve or reject for a valid application."});
+  try{
+    const r=await pool.query("UPDATE agency_applications SET status=$1,reviewed_at=NOW(),reviewed_by=$2 WHERE id=$3 AND status='pending' RETURNING id,status,reviewed_at",[status,req.user.id,id]);
+    if(!r.rowCount)return res.status(404).json({error:"Pending application not found. It may already have been reviewed."});
+    res.json({application:r.rows[0],notice:"Agency application "+status+"."});
+  }catch(err){console.error("Agency application review failed",err);res.status(500).json({error:"Could not update agency application."});}
+});
 app.get("/api/admin/overview",auth,requireAdmin,async(_req,res)=>{
   try{
     const [users,rooms,live,withdrawals,pending,payments,gifts,calls,reports]=await Promise.all([
