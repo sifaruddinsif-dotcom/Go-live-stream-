@@ -415,7 +415,7 @@ const CALL_RATE_COINS_PER_MINUTE = 2000;
 const CALL_HOST_SHARE_PERCENT = 60;
 app.get("/api/calls/rate", auth, (req,res) => res.json({coinsPerMinute:CALL_RATE_COINS_PER_MINUTE,hostSharePercent:CALL_HOST_SHARE_PERCENT,platformSharePercent:100-CALL_HOST_SHARE_PERCENT}));
 app.post("/api/calls/:id/bill-minute", auth, async (req,res) => {
-  if(!/^\\d+$/.test(req.params.id)) return res.status(400).json({error:"Invalid call ID."});
+  if(!/^\d+$/.test(req.params.id)) return res.status(400).json({error:"Invalid call ID."});
   const client=await pool.connect();
   try {
     await client.query("BEGIN");
