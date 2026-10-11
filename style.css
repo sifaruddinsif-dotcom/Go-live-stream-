@@ -280,3 +280,6 @@ body:has(.host-live-ui) .room:has(#media-view) .controls button{
  .host-live-ui .host-comment-form input{font-size:10px!important}
  .host-live-ui .host-feature-bar:not([hidden]){grid-template-columns:repeat(4,minmax(0,1fr))!important;bottom:65px!important;gap:5px!important;padding:12px 7px!important}
 }
+
+/* Keep room number off the approved host header; coins are shown inside Gift. */
+.host-live-ui .host-room-strip{display:none!important}
