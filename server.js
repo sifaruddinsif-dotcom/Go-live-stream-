@@ -434,6 +434,17 @@ app.post("/api/auth/login", async (req, res) => {
 });
 app.get("/api/me", auth, (req,res) => res.json({ user: req.user }));
 
+app.get("/api/me/level-progress", auth, async (req,res) => {
+  try {
+    const r=await pool.query(
+      "SELECT COALESCE(SUM(CASE WHEN kind='gift_sent' THEN ABS(amount) ELSE 0 END),0)::bigint AS sent_coins, COALESCE(SUM(CASE WHEN kind='gift_received' THEN ABS(amount) ELSE 0 END),0)::bigint AS received_coins FROM wallet_transactions WHERE user_id=$1",
+      [req.user.id]
+    );
+    res.json({sentCoins:Number(r.rows[0].sent_coins||0),receivedCoins:Number(r.rows[0].received_coins||0),maxLevel:100,coinsPerLevel:1000});
+  } catch { res.status(500).json({error:"Could not load level progress."}); }
+});
+
+
 app.get("/api/me/profile-stats", auth, async (req,res) => {
   try {
     const [following,followers,friends] = await Promise.all([
