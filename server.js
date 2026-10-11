@@ -413,7 +413,7 @@ app.get("/api/messages/conversations", auth, async (req,res) => {
 });
 app.get("/api/messages/:userId", auth, async (req,res) => {
   const peer=String(req.params.userId||"");
-  if(!/^\\d+$/.test(peer)||peer===String(req.user.id)) return res.status(400).json({error:"Choose another valid user."});
+  if(!/^\d+$/.test(peer)||peer===String(req.user.id)) return res.status(400).json({error:"Choose another valid user."});
   try {
     const u=await pool.query("SELECT id,username FROM users WHERE id=$1",[peer]);
     if(!u.rowCount)return res.status(404).json({error:"User not found."});
@@ -429,7 +429,7 @@ app.get("/api/messages/:userId", auth, async (req,res) => {
 app.post("/api/messages/:userId", auth, async (req,res) => {
   const peer=String(req.params.userId||"");
   const body=String(req.body?.body||"").trim();
-  if(!/^\\d+$/.test(peer)||peer===String(req.user.id))return res.status(400).json({error:"Choose another valid user."});
+  if(!/^\d+$/.test(peer)||peer===String(req.user.id))return res.status(400).json({error:"Choose another valid user."});
   if(!body||body.length>1000)return res.status(400).json({error:"Message must be 1–1000 characters."});
   try {
     const u=await pool.query("SELECT id FROM users WHERE id=$1",[peer]);
