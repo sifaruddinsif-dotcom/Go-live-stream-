@@ -380,10 +380,46 @@ app.post("/api/calls/:id/respond", auth, async (req,res) => {
   const decision=String(req.body?.decision||"");
   if(!["accepted","rejected"].includes(decision)) return res.status(400).json({error:"Choose accept or reject."});
   try {
-    const r=await pool.query("UPDATE call_requests SET status=$1,updated_at=NOW() WHERE id=$2 AND callee_id=$3 AND status='ringing' RETURNING id,room_id,status,caller_id,callee_id",[decision,req.params.id,req.user.id]);
+    const r=await pool.query("UPDATE call_requests SET status=$1,updated_at=NOW(),accepted_at=CASE WHEN $1='accepted' THEN NOW() ELSE accepted_at END WHERE id=$2 AND callee_id=$3 AND status='ringing' RETURNING id,room_id,status,caller_id,callee_id",[decision,req.params.id,req.user.id]);
     if(!r.rowCount) return res.status(404).json({error:"Call request is no longer available."});
     res.json({call:r.rows[0]});
   } catch { res.status(500).json({error:"Could not respond to call."}); }
+});
+// Fixed 1-to-1 call pricing: caller pays 100 FUN coins/minute; host receives 60, platform share is 40.
+const CALL_RATE_COINS_PER_MINUTE = 100;
+const CALL_HOST_SHARE_PERCENT = 60;
+app.get("/api/calls/rate", auth, (req,res) => res.json({coinsPerMinute:CALL_RATE_COINS_PER_MINUTE,hostSharePercent:CALL_HOST_SHARE_PERCENT,platformSharePercent:100-CALL_HOST_SHARE_PERCENT}));
+app.post("/api/calls/:id/bill-minute", auth, async (req,res) => {
+  if(!/^\\d+$/.test(req.params.id)) return res.status(400).json({error:"Invalid call ID."});
+  const client=await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const c=await client.query("SELECT * FROM call_requests WHERE id=$1 AND caller_id=$2 FOR UPDATE",[req.params.id,req.user.id]);
+    if(!c.rowCount){await client.query("ROLLBACK");return res.status(403).json({error:"Only the caller can pay for this call."});}
+    const row=c.rows[0];
+    if(row.status!=="accepted"){await client.query("ROLLBACK");return res.status(409).json({error:"Call is not active."});}
+    const nextMinute=Number(row.billed_minutes)+1;
+    const elapsed=Date.now()-new Date(row.accepted_at).getTime();
+    if(elapsed < nextMinute*60000){await client.query("ROLLBACK");return res.status(425).json({error:"The next minute has not started yet.",retryAfterSeconds:Math.ceil((nextMinute*60000-elapsed)/1000)});}
+    await client.query("INSERT INTO wallet_accounts(user_id,balance) VALUES($1,100) ON CONFLICT(user_id) DO NOTHING",[req.user.id]);
+    await client.query("INSERT INTO wallet_accounts(user_id,balance) VALUES($1,100) ON CONFLICT(user_id) DO NOTHING",[row.callee_id]);
+    const w=await client.query("SELECT balance FROM wallet_accounts WHERE user_id=$1 FOR UPDATE",[req.user.id]);
+    if(Number(w.rows[0].balance)<CALL_RATE_COINS_PER_MINUTE){
+      await client.query("UPDATE call_requests SET status='ended',updated_at=NOW() WHERE id=$1",[row.id]);
+      await client.query("COMMIT");
+      return res.status(402).json({error:"Not enough coins. Call ended.",balance:Number(w.rows[0].balance),callEnded:true});
+    }
+    const hostCoins=Math.floor(CALL_RATE_COINS_PER_MINUTE*CALL_HOST_SHARE_PERCENT/100);
+    await client.query("UPDATE wallet_accounts SET balance=balance-$1,updated_at=NOW() WHERE user_id=$2",[CALL_RATE_COINS_PER_MINUTE,req.user.id]);
+    await client.query("UPDATE wallet_accounts SET balance=balance+$1,updated_at=NOW() WHERE user_id=$2",[hostCoins,row.callee_id]);
+    await client.query("UPDATE call_requests SET billed_minutes=$1,updated_at=NOW() WHERE id=$2",[nextMinute,row.id]);
+    const ref="call:"+row.id+":minute:"+nextMinute;
+    await client.query("INSERT INTO wallet_transactions(user_id,amount,kind,reference) VALUES($1,$2,'call_charge',$3),($4,$5,'call_earning',$3)",[req.user.id,-CALL_RATE_COINS_PER_MINUTE,ref,row.callee_id,hostCoins]);
+    const bal=await client.query("SELECT balance FROM wallet_accounts WHERE user_id=$1",[req.user.id]);
+    await client.query("COMMIT");
+    res.json({billedMinutes:nextMinute,charged:CALL_RATE_COINS_PER_MINUTE,hostCoins,platformCoins:CALL_RATE_COINS_PER_MINUTE-hostCoins,balance:Number(bal.rows[0].balance)});
+  } catch(e){await client.query("ROLLBACK").catch(()=>{});res.status(500).json({error:"Could not bill call minute."});}
+  finally{client.release();}
 });
 app.post("/api/calls/:id/end", auth, async (req,res) => {
   if(!/^\d+$/.test(req.params.id)) return res.status(400).json({error:"Invalid call ID."});
