@@ -130,6 +130,17 @@ async function initDb() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       paid_at TIMESTAMPTZ
     );
+    CREATE TABLE IF NOT EXISTS app_task_settings (
+      id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+      female_only BOOLEAN NOT NULL DEFAULT TRUE,
+      live_hours NUMERIC(5,2) NOT NULL DEFAULT 17 CHECK (live_hours > 0 AND live_hours <= 168),
+      reward_usd NUMERIC(10,2) NOT NULL DEFAULT 15 CHECK (reward_usd >= 0 AND reward_usd <= 100000),
+      duration_days INTEGER NOT NULL DEFAULT 7 CHECK (duration_days > 0 AND duration_days <= 365),
+      enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_by BIGINT REFERENCES users(id) ON DELETE SET NULL
+    );
+    INSERT INTO app_task_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
   `);
 }
 function tokenFor(user) { return jwt.sign({ sub: String(user.id), username: user.username }, JWT_SECRET, { expiresIn: "7d", issuer: "go-live-stream" }); }
@@ -495,6 +506,16 @@ function requireAdmin(req,res,next){
   if(!allowed.includes(String(req.user.id))) return res.status(403).json({error:"Admin access required."});
   next();
 }
+app.get("/api/admin/task-settings",auth,requireAdmin,async(_req,res)=>{
+  try { const q=await pool.query("SELECT female_only,live_hours,reward_usd,duration_days,enabled,updated_at FROM app_task_settings WHERE id=1"); res.json({settings:q.rows[0]}); }
+  catch(err) { console.error("admin task settings read failed",err); res.status(500).json({error:"Could not load task settings."}); }
+});
+app.patch("/api/admin/task-settings",auth,requireAdmin,async(req,res)=>{
+  const b=req.body||{}, hours=Number(b.live_hours), reward=Number(b.reward_usd), days=Number(b.duration_days);
+  if(typeof b.female_only!=="boolean"||typeof b.enabled!=="boolean"||!Number.isFinite(hours)||hours<=0||hours>168||!Number.isFinite(reward)||reward<0||reward>100000||!Number.isInteger(days)||days<1||days>365) return res.status(400).json({error:"Invalid task settings. Hours: 0–168, reward: 0–100000 USD, duration: 1–365 days."});
+  try { const q=await pool.query("UPDATE app_task_settings SET female_only=$1,live_hours=$2,reward_usd=$3,duration_days=$4,enabled=$5,updated_at=NOW(),updated_by=$6 WHERE id=1 RETURNING female_only,live_hours,reward_usd,duration_days,enabled,updated_at",[b.female_only,hours,reward,days,b.enabled,req.user.id]); res.json({notice:"Task settings saved to database.",settings:q.rows[0]}); }
+  catch(err) { console.error("admin task settings save failed",err); res.status(500).json({error:"Could not save task settings."}); }
+});
 app.get("/api/admin/overview",auth,requireAdmin,async(_req,res)=>{
   try{
     const [users,rooms,live,withdrawals,pending,payments,gifts,calls,reports]=await Promise.all([
