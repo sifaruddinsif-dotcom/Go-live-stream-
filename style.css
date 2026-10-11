@@ -450,3 +450,23 @@ body:has(.host-live-ui) .room:has(#media-view) .controls button{
 .level-switch{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:14px 0}.level-switch button{border:1px solid #4a2859;border-radius:13px;background:#171126;color:#ddd0eb;padding:12px 5px;font-weight:700}.level-switch button.active{background:linear-gradient(110deg,#ff2999,#b832e9);border-color:#ff64c1;color:white;box-shadow:0 0 15px #ff299933}
 .level-summary-card{display:flex;align-items:center;gap:14px;border:1px solid #76502d;border-radius:17px;padding:16px;background:linear-gradient(120deg,#251532,#151326);margin-bottom:18px}.level-summary-card .level-badge{flex:0 0 58px;width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#ffcf57,#ff8a22);color:#31162b;font-weight:900;border:3px solid #ffe09b;box-shadow:0 0 14px #ffbb4633}.level-summary-card h2{font-size:17px;margin:0 0 6px}.level-summary-card p{font-size:12px;color:#e8d9f1;margin:0 0 5px}.level-summary-card small{font-size:11px;color:#bba8ce}.level-grid-heading{display:flex;justify-content:space-between;align-items:center;margin:14px 2px 10px}.level-grid-heading strong{font-size:16px}.level-grid-heading small{color:#c0b2d0}.level-grid{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:5px;padding:10px;border:1px solid #33213f;border-radius:15px;background:#100d1c}.level-tile{min-width:0;aspect-ratio:1/1;border:1px solid #45314f;border-radius:8px;background:#1a1627;color:#8e829d;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1px;gap:1px}.level-tile span{font-size:clamp(10px,2.8vw,15px);font-weight:800}.level-tile small{font-size:7px;letter-spacing:.3px}.level-tile.unlocked{color:#fff0b8;border-color:#a37a35;background:linear-gradient(145deg,#735020,#38243a)}.level-tile.current{color:white;border:2px solid #ff42b1;background:linear-gradient(145deg,#ff2999,#7d31d9);box-shadow:0 0 10px #ff299944}.level-tile.locked{opacity:.65}.level-note{font-size:11px;color:#a99ab9;line-height:1.5;margin:12px 3px 22px}
 @media(max-width:360px){.level-grid{gap:3px;padding:6px}.level-tile{border-radius:5px}.level-tile span{font-size:10px}}
+
+
+/* FUN LIVE level tiles — colorful 10-row neon bands from approved reference */
+.level-grid{gap:6px;padding:10px;background:linear-gradient(145deg,#120d20,#0b0a17);border-color:#4a2859;box-shadow:inset 0 0 22px #e32acb0d}
+.level-tile{opacity:1!important;color:#fff!important;border-width:1.5px;border-radius:9px;box-shadow:inset 0 1px 5px #ffffff18;transition:transform .15s,box-shadow .15s}
+.level-tile:nth-child(-n+10){background:linear-gradient(145deg,#7c104f,#300e46);border-color:#ff169f;box-shadow:inset 0 0 8px #ff36b633}
+.level-tile:nth-child(n+11):nth-child(-n+20){background:linear-gradient(145deg,#064c9a,#091c4b);border-color:#168dff;box-shadow:inset 0 0 8px #168dff33}
+.level-tile:nth-child(n+21):nth-child(-n+30){background:linear-gradient(145deg,#6811a7,#260b5b);border-color:#a52bff;box-shadow:inset 0 0 8px #b72bff33}
+.level-tile:nth-child(n+31):nth-child(-n+40){background:linear-gradient(145deg,#087e79,#063d46);border-color:#00e0cb;box-shadow:inset 0 0 8px #00e0cb33}
+.level-tile:nth-child(n+41):nth-child(-n+50){background:linear-gradient(145deg,#986500,#4b3100);border-color:#ffd22e;box-shadow:inset 0 0 8px #ffd22e33}
+.level-tile:nth-child(n+51):nth-child(-n+60){background:linear-gradient(145deg,#b33a08,#5a1906);border-color:#ff6b28;box-shadow:inset 0 0 8px #ff6b2833}
+.level-tile:nth-child(n+61):nth-child(-n+70){background:linear-gradient(145deg,#087b3c,#064326);border-color:#16ed72;box-shadow:inset 0 0 8px #16ed7233}
+.level-tile:nth-child(n+71):nth-child(-n+80){background:linear-gradient(145deg,#064fae,#08275f);border-color:#1d8cff;box-shadow:inset 0 0 8px #1d8cff33}
+.level-tile:nth-child(n+81):nth-child(-n+90){background:linear-gradient(145deg,#a31e36,#50101e);border-color:#ff4563;box-shadow:inset 0 0 8px #ff456333}
+.level-tile:nth-child(n+91):nth-child(-n+100){background:linear-gradient(145deg,#9a6800,#493000);border-color:#ffd34a;box-shadow:inset 0 0 8px #ffd34a33}
+.level-tile.current{border:2px solid #ff75d1!important;background:linear-gradient(145deg,#ff2999,#8c26dc)!important;box-shadow:0 0 13px #ff2999aa,inset 0 0 8px #ffffff45!important;transform:scale(1.03)}
+.level-tile.unlocked{color:#fff!important;filter:brightness(1.12)}
+.level-tile span{color:#fff;text-shadow:0 1px 3px #0008}
+.level-tile small{font-size:clamp(7px,2vw,11px);color:#fff;text-shadow:0 1px 3px #0009}
+@media(max-width:360px){.level-grid{gap:3px;padding:6px}.level-tile{border-radius:6px}}
