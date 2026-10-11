@@ -432,7 +432,7 @@ async function joinMedia(id){
      const micTrack=await AgoraRTC.createMicrophoneAudioTrack();
      let cameraTrack;
      try{
-       cameraTrack=await AgoraRTC.createCameraVideoTrack();
+       cameraTrack=await AgoraRTC.createCameraVideoTrack({encoderConfig:'480p_1'});
      }catch(e){
        micTrack.stop();micTrack.close();
        throw e;
