@@ -56,7 +56,7 @@ if(['Agency Dashboard','Agency Hosts','Agency Earnings','Agency History'].includ
 if(p==='Agency Add Host'){const form=document.getElementById('agency-add-host-form');form?.addEventListener('submit',async e=>{e.preventDefault();const note=document.getElementById('agency-host-note'),btn=form.querySelector('button[type=submit]');if(!dailyToken()){note.textContent='Please sign in first. No host was added.';return}btn.disabled=true;try{const r=await fetch(dailyApi()+'/api/agency/hosts',{method:'POST',headers:dmHeaders(true),body:JSON.stringify({funLiveId:new FormData(form).get('funLiveId')})});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Could not add host.');note.textContent='Host '+j.host.username+' ('+j.host.funLiveId+') added successfully.';form.reset();toast('Host added to agency.')}catch(err){note.textContent=err.message;toast(err.message)}finally{btn.disabled=false}})}
 if(p==='Task Center') loadDailyRewardStatus();
 if(p==='Messages') loadDirectInbox();
-document.querySelectorAll('nav [data-page]').forEach(b=>b.style.color=b.dataset.page===p?'#ff60ad':'#aaa8c1');window.scrollTo(0,0)}
+document.querySelectorAll('nav [data-page]').forEach(b=>b.style.color=b.dataset.page===p?'#ff60ad':'#aaa8c1');const liveTab=document.querySelector('nav .go');if(liveTab)liveTab.style.display=p==='Profile'?'none':'';window.scrollTo(0,0)}
 
 function dmApi(){return dailyApi()}
 function dmHeaders(json=false){const h={Authorization:'Bearer '+dailyToken()};if(json)h['Content-Type']='application/json';return h}
