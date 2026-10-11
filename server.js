@@ -354,8 +354,11 @@ app.post("/api/calls", auth, async (req,res) => {
   const calleeId=String(req.body?.calleeId||"");
   if(!/^\d+$/.test(calleeId) || calleeId===String(req.user.id)) return res.status(400).json({error:"Choose another valid GO LIVE user."});
   try {
-    const u=await pool.query("SELECT id FROM users WHERE id=$1",[calleeId]);
+    const u=await pool.query("SELECT id,gender FROM users WHERE id=$1",[calleeId]);
     if(!u.rowCount) return res.status(404).json({error:"User not found."});
+    const caller=await pool.query("SELECT gender FROM users WHERE id=$1",[req.user.id]);
+    if(caller.rows[0].gender!=="male") return res.status(403).json({error:"Private paid calls are available to male callers only. Set your profile gender to Male first."});
+    if(u.rows[0].gender!=="female") return res.status(403).json({error:"Paid private calls can only be placed to female hosts with a Female profile."});
     const room=await pool.query("INSERT INTO rooms(owner_id,title,kind) VALUES($1,$2,'live') RETURNING id",[req.user.id,"call-"+req.user.id+"-"+calleeId+"-"+Date.now()]);
     const c=await pool.query("INSERT INTO call_requests(caller_id,callee_id,room_id) VALUES($1,$2,$3) RETURNING id,room_id,status,created_at",[req.user.id,calleeId,room.rows[0].id]);
     res.status(201).json({call:{...c.rows[0],callerId:req.user.id,calleeId:Number(calleeId)},notice:"Call request sent. The other user must accept before the call connects."});
