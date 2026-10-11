@@ -140,6 +140,16 @@ async function initDb() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_by BIGINT REFERENCES users(id) ON DELETE SET NULL
     );
+    ALTER TABLE app_task_settings ADD COLUMN IF NOT EXISTS daily_reward_min INTEGER NOT NULL DEFAULT 50;
+    ALTER TABLE app_task_settings ADD COLUMN IF NOT EXISTS daily_reward_max INTEGER NOT NULL DEFAULT 500;
+    CREATE TABLE IF NOT EXISTS daily_reward_claims (
+      id BIGSERIAL PRIMARY KEY,
+      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      reward_date DATE NOT NULL,
+      coins INTEGER NOT NULL CHECK(coins >= 50 AND coins <= 5000),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(user_id,reward_date)
+    );
     INSERT INTO app_task_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
   `);
 }
@@ -506,14 +516,49 @@ function requireAdmin(req,res,next){
   if(!allowed.includes(String(req.user.id))) return res.status(403).json({error:"Admin access required."});
   next();
 }
+app.get("/api/daily-rewards",auth,async(req,res)=>{
+  try {
+    const [cfg,claim,wallet]=await Promise.all([
+      pool.query("SELECT daily_reward_min,daily_reward_max,enabled FROM app_task_settings WHERE id=1"),
+      pool.query("SELECT coins,created_at FROM daily_reward_claims WHERE user_id=$1 AND reward_date=(NOW() AT TIME ZONE 'Asia/Kolkata')::date",[req.user.id]),
+      pool.query("SELECT balance FROM wallet_accounts WHERE user_id=$1",[req.user.id])
+    ]);
+    const settings=cfg.rows[0]||{daily_reward_min:50,daily_reward_max:500,enabled:true};
+    res.json({minCoins:Number(settings.daily_reward_min),maxCoins:Number(settings.daily_reward_max),enabled:settings.enabled,claimed:!!claim.rowCount,claimedCoins:claim.rowCount?Number(claim.rows[0].coins):0,claimDate:claim.rowCount?claim.rows[0].created_at:null,balance:Number(wallet.rows[0]?.balance||0)});
+  } catch(err) { console.error("daily reward status failed",err);res.status(500).json({error:"Could not load daily reward status."}); }
+});
+app.post("/api/daily-rewards/claim",auth,async(req,res)=>{
+  const client=await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const cfg=await client.query("SELECT daily_reward_min,daily_reward_max,enabled FROM app_task_settings WHERE id=1 FOR SHARE");
+    const settings=cfg.rows[0]||{daily_reward_min:50,daily_reward_max:500,enabled:true};
+    if(!settings.enabled){await client.query("ROLLBACK");return res.status(403).json({error:"Daily rewards are currently disabled."});}
+    const min=Number(settings.daily_reward_min),max=Number(settings.daily_reward_max);
+    const coins=Math.floor(Math.random()*(max-min+1))+min;
+    const claim=await client.query("INSERT INTO daily_reward_claims(user_id,reward_date,coins) VALUES($1,(NOW() AT TIME ZONE 'Asia/Kolkata')::date,$2) ON CONFLICT(user_id,reward_date) DO NOTHING RETURNING coins",[req.user.id,coins]);
+    if(!claim.rowCount){
+      await client.query("ROLLBACK");
+      const prev=await pool.query("SELECT coins FROM daily_reward_claims WHERE user_id=$1 AND reward_date=(NOW() AT TIME ZONE 'Asia/Kolkata')::date",[req.user.id]);
+      return res.status(409).json({error:"You have already claimed today's reward.",claimed:true,coins:Number(prev.rows[0]?.coins||0)});
+    }
+    await client.query("INSERT INTO wallet_accounts(user_id,balance) VALUES($1,100) ON CONFLICT(user_id) DO NOTHING",[req.user.id]);
+    await client.query("UPDATE wallet_accounts SET balance=balance+$1,updated_at=NOW() WHERE user_id=$2",[coins,req.user.id]);
+    await client.query("INSERT INTO wallet_transactions(user_id,amount,kind,reference) VALUES($1,$2,'daily_reward',$3)",[req.user.id,coins,"daily-reward:"+(new Date().toISOString().slice(0,10))]);
+    const bal=await client.query("SELECT balance FROM wallet_accounts WHERE user_id=$1",[req.user.id]);
+    await client.query("COMMIT");
+    res.json({notice:"Daily reward claimed successfully!",coins,balance:Number(bal.rows[0].balance),claimed:true});
+  } catch(err) { await client.query("ROLLBACK").catch(()=>{});console.error("daily reward claim failed",err);res.status(500).json({error:"Could not claim daily reward. Please try again."}); }
+  finally {client.release();}
+});
 app.get("/api/admin/task-settings",auth,requireAdmin,async(_req,res)=>{
-  try { const q=await pool.query("SELECT female_only,live_hours,reward_usd,duration_days,enabled,updated_at FROM app_task_settings WHERE id=1"); res.json({settings:q.rows[0]}); }
+  try { const q=await pool.query("SELECT female_only,live_hours,reward_usd,duration_days,enabled,daily_reward_min,daily_reward_max,updated_at FROM app_task_settings WHERE id=1"); res.json({settings:q.rows[0]}); }
   catch(err) { console.error("admin task settings read failed",err); res.status(500).json({error:"Could not load task settings."}); }
 });
 app.patch("/api/admin/task-settings",auth,requireAdmin,async(req,res)=>{
-  const b=req.body||{}, hours=Number(b.live_hours), reward=Number(b.reward_usd), days=Number(b.duration_days);
-  if(typeof b.female_only!=="boolean"||typeof b.enabled!=="boolean"||!Number.isFinite(hours)||hours<=0||hours>168||!Number.isFinite(reward)||reward<0||reward>100000||!Number.isInteger(days)||days<1||days>365) return res.status(400).json({error:"Invalid task settings. Hours: 0–168, reward: 0–100000 USD, duration: 1–365 days."});
-  try { const q=await pool.query("UPDATE app_task_settings SET female_only=$1,live_hours=$2,reward_usd=$3,duration_days=$4,enabled=$5,updated_at=NOW(),updated_by=$6 WHERE id=1 RETURNING female_only,live_hours,reward_usd,duration_days,enabled,updated_at",[b.female_only,hours,reward,days,b.enabled,req.user.id]); res.json({notice:"Task settings saved to database.",settings:q.rows[0]}); }
+  const b=req.body||{}, hours=Number(b.live_hours), reward=Number(b.reward_usd), days=Number(b.duration_days), dailyMin=Number(b.daily_reward_min), dailyMax=Number(b.daily_reward_max);
+  if(typeof b.female_only!=="boolean"||typeof b.enabled!=="boolean"||!Number.isFinite(hours)||hours<=0||hours>168||!Number.isFinite(reward)||reward<0||reward>100000||!Number.isInteger(days)||days<1||days>365||!Number.isInteger(dailyMin)||dailyMin<50||dailyMin>5000||!Number.isInteger(dailyMax)||dailyMax<dailyMin||dailyMax>5000) return res.status(400).json({error:"Invalid settings. Daily reward must be 50–5000 coins and max must be at least min."});
+  try { const q=await pool.query("UPDATE app_task_settings SET female_only=$1,live_hours=$2,reward_usd=$3,duration_days=$4,enabled=$5,daily_reward_min=$7,daily_reward_max=$8,updated_at=NOW(),updated_by=$6 WHERE id=1 RETURNING female_only,live_hours,reward_usd,duration_days,enabled,daily_reward_min,daily_reward_max,updated_at",[b.female_only,hours,reward,days,b.enabled,req.user.id,dailyMin,dailyMax]); res.json({notice:"Task settings saved to database.",settings:q.rows[0]}); }
   catch(err) { console.error("admin task settings save failed",err); res.status(500).json({error:"Could not save task settings."}); }
 });
 app.get("/api/admin/overview",auth,requireAdmin,async(_req,res)=>{
