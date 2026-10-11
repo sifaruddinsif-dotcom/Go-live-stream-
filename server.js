@@ -62,6 +62,23 @@ async function initDb() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS call_requests_callee_status_idx ON call_requests(callee_id,status,created_at DESC);
+    CREATE TABLE IF NOT EXISTS diamond_accounts (
+      user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      balance BIGINT NOT NULL DEFAULT 0 CHECK(balance >= 0),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS withdrawal_requests (
+      id BIGSERIAL PRIMARY KEY,
+      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      diamonds BIGINT NOT NULL CHECK(diamonds >= 10000),
+      usd_amount NUMERIC(12,4) NOT NULL,
+      usd_inr_rate NUMERIC(10,4) NOT NULL,
+      inr_amount NUMERIC(12,2) NOT NULL,
+      payout_details TEXT NOT NULL,
+      status VARCHAR(16) NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','paid','rejected')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
     CREATE TABLE IF NOT EXISTS wallet_accounts (
       user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       balance BIGINT NOT NULL DEFAULT 100 CHECK(balance >= 0),
@@ -255,7 +272,7 @@ app.post("/api/gifts/send", auth, async (req,res) => {
     const hostCoins=Math.floor(gift.coins*0.60);
     const platformCoins=gift.coins-hostCoins;
     await client.query("UPDATE wallet_accounts SET balance=balance-$1,updated_at=NOW() WHERE user_id=$2",[gift.coins,req.user.id]);
-    await client.query("UPDATE wallet_accounts SET balance=balance+$1,updated_at=NOW() WHERE user_id=$2",[hostCoins,receiverId]);
+    await client.query("INSERT INTO diamond_accounts(user_id,balance) VALUES($1,$2) ON CONFLICT(user_id) DO UPDATE SET balance=diamond_accounts.balance+EXCLUDED.balance,updated_at=NOW()",[receiverId,hostCoins]);
     const tx=await client.query("INSERT INTO live_gifts(room_id,sender_id,receiver_id,gift_key,coins) VALUES($1,$2,$3,$4,$5) RETURNING id,room_id,gift_key,coins,created_at",[roomId,req.user.id,receiverId,giftKey,gift.coins]);
     await client.query("INSERT INTO wallet_transactions(user_id,amount,kind,reference) VALUES($1,$2,'gift_sent',$3),($4,$5,'gift_received',$3)",[req.user.id,-gift.coins,String(tx.rows[0].id),receiverId,hostCoins]);
     const balances=await client.query("SELECT balance FROM wallet_accounts WHERE user_id=$1",[req.user.id]);
@@ -414,7 +431,7 @@ app.post("/api/calls/:id/bill-minute", auth, async (req,res) => {
     }
     const hostCoins=Math.floor(CALL_RATE_COINS_PER_MINUTE*CALL_HOST_SHARE_PERCENT/100);
     await client.query("UPDATE wallet_accounts SET balance=balance-$1,updated_at=NOW() WHERE user_id=$2",[CALL_RATE_COINS_PER_MINUTE,req.user.id]);
-    await client.query("UPDATE wallet_accounts SET balance=balance+$1,updated_at=NOW() WHERE user_id=$2",[hostCoins,row.callee_id]);
+    await client.query("INSERT INTO diamond_accounts(user_id,balance) VALUES($1,$2) ON CONFLICT(user_id) DO UPDATE SET balance=diamond_accounts.balance+EXCLUDED.balance,updated_at=NOW()",[row.callee_id,hostCoins]);
     await client.query("UPDATE call_requests SET billed_minutes=$1,updated_at=NOW() WHERE id=$2",[nextMinute,row.id]);
     const ref="call:"+row.id+":minute:"+nextMinute;
     await client.query("INSERT INTO wallet_transactions(user_id,amount,kind,reference) VALUES($1,$2,'call_charge',$3),($4,$5,'call_earning',$3)",[req.user.id,-CALL_RATE_COINS_PER_MINUTE,ref,row.callee_id,hostCoins]);
@@ -422,6 +439,42 @@ app.post("/api/calls/:id/bill-minute", auth, async (req,res) => {
     await client.query("COMMIT");
     res.json({billedMinutes:nextMinute,charged:CALL_RATE_COINS_PER_MINUTE,hostCoins,platformCoins:CALL_RATE_COINS_PER_MINUTE-hostCoins,balance:Number(bal.rows[0].balance)});
   } catch(e){await client.query("ROLLBACK").catch(()=>{});res.status(500).json({error:"Could not bill call minute."});}
+  finally{client.release();}
+});
+// Host earnings are diamonds. Minimum withdrawal is 10,000 diamonds.
+const MIN_WITHDRAWAL_DIAMONDS = 10000;
+const DIAMONDS_PER_USD = Number(process.env.DIAMONDS_PER_USD || 9500);
+const USD_INR_RATE = Number(process.env.USD_INR_RATE || 95);
+app.get("/api/withdrawal/summary", auth, async (req,res) => {
+  try {
+    await pool.query("INSERT INTO diamond_accounts(user_id,balance) VALUES($1,0) ON CONFLICT(user_id) DO NOTHING",[req.user.id]);
+    const [b,p]=await Promise.all([
+      pool.query("SELECT balance FROM diamond_accounts WHERE user_id=$1",[req.user.id]),
+      pool.query("SELECT id,diamonds,usd_amount,usd_inr_rate,inr_amount,status,created_at FROM withdrawal_requests WHERE user_id=$1 ORDER BY created_at DESC LIMIT 20",[req.user.id])
+    ]);
+    const diamonds=Number(b.rows[0].balance);
+    res.json({diamonds,minimumDiamonds:MIN_WITHDRAWAL_DIAMONDS,diamondsPerUSD:DIAMONDS_PER_USD,usdInrRate:USD_INR_RATE,estimatedUSD:Math.floor(diamonds/DIAMONDS_PER_USD*100)/100,estimatedINR:Math.floor(diamonds/DIAMONDS_PER_USD*USD_INR_RATE*100)/100,withdrawals:p.rows});
+  } catch {res.status(500).json({error:"Could not load withdrawal summary."});}
+});
+app.post("/api/withdrawals", auth, async (req,res) => {
+  const diamonds=Number(req.body?.diamonds);
+  const payoutDetails=String(req.body?.payoutDetails||"").trim();
+  if(!Number.isSafeInteger(diamonds)||diamonds<MIN_WITHDRAWAL_DIAMONDS) return res.status(400).json({error:"Minimum withdrawal is 10,000 diamonds."});
+  if(diamonds>1000000000||payoutDetails.length<5||payoutDetails.length>500) return res.status(400).json({error:"Enter a valid diamond amount and payout details."});
+  if(!Number.isFinite(DIAMONDS_PER_USD)||DIAMONDS_PER_USD<=0||!Number.isFinite(USD_INR_RATE)||USD_INR_RATE<=0) return res.status(503).json({error:"Withdrawal conversion rates are not configured correctly."});
+  const client=await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("INSERT INTO diamond_accounts(user_id,balance) VALUES($1,0) ON CONFLICT(user_id) DO NOTHING",[req.user.id]);
+    const b=await client.query("SELECT balance FROM diamond_accounts WHERE user_id=$1 FOR UPDATE",[req.user.id]);
+    if(Number(b.rows[0].balance)<diamonds){await client.query("ROLLBACK");return res.status(402).json({error:"Not enough diamonds for this withdrawal.",available:Number(b.rows[0].balance)});}
+    const usd=Math.floor((diamonds/DIAMONDS_PER_USD)*10000)/10000;
+    const inr=Math.round(usd*USD_INR_RATE*100)/100;
+    await client.query("UPDATE diamond_accounts SET balance=balance-$1,updated_at=NOW() WHERE user_id=$2",[diamonds,req.user.id]);
+    const w=await client.query("INSERT INTO withdrawal_requests(user_id,diamonds,usd_amount,usd_inr_rate,inr_amount,payout_details) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,diamonds,usd_amount,usd_inr_rate,inr_amount,status,created_at",[req.user.id,diamonds,usd,USD_INR_RATE,inr,payoutDetails]);
+    await client.query("COMMIT");
+    res.status(201).json({withdrawal:w.rows[0],notice:"Withdrawal request submitted for manual review. Payout is not automatic yet."});
+  } catch(e){await client.query("ROLLBACK").catch(()=>{});res.status(500).json({error:"Could not submit withdrawal request."});}
   finally{client.release();}
 });
 app.post("/api/calls/:id/end", auth, async (req,res) => {
