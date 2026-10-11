@@ -616,7 +616,7 @@ document.addEventListener('change',e=>{
 
 async function loadWallet(){
  const r=await call('/api/wallet');
- if($('host-wallet-balance'))$('host-wallet-balance').textContent=String(r.balance);
+ if($('host-wallet-balance'))$('host-wallet-balance').textContent=String(r.balance);if($('host-gift-coin-balance'))$('host-gift-coin-balance').textContent=String(r.balance);
  if($('viewer-wallet-balance'))$('viewer-wallet-balance').textContent=String(r.balance);
  return r.balance;
 }
