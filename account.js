@@ -46,7 +46,7 @@ document.addEventListener('click',async function(e){
   const label=document.getElementById('room-id-label');if(label)label.textContent='Live room #'+roomId+' — share this number with viewers.';
   show('Room created. Connecting camera and microphone…');
   if(typeof joinMedia!=='function')throw Error('Room created (#'+roomId+'), but camera connector did not load. Please send this message.');
-  await joinMedia(roomId);
+  await joinMedia(roomId);document.dispatchEvent(new CustomEvent('fun-live-started',{detail:{roomId,title}}));
  }catch(err){show('❌ Live start nahi hua: '+(err.message||'Unknown error'));}
  finally{btn.disabled=false;btn.textContent=original;btn.dataset.busy='0';}
 },true);
@@ -488,7 +488,7 @@ async function leaveMedia(){
  localTracks=[];
  $('media-view').innerHTML='';$('leave-media').hidden=true;$('toggle-mic').disabled=true;$('toggle-camera').disabled=true;
 }
-$('leave-media').onclick=()=>action(async()=>{await leaveMedia();if(activeCallId)await call('/api/calls/'+activeCallId+'/end','POST',{}).catch(()=>{});activeCallId=null;status('Live/call ended.')});
+$('leave-media').onclick=()=>action(async()=>{const liveTitle=$('room-title')?.value||$('setup-title')?.value||'My Live';const isHost=!!document.querySelector('.host-live-ui');await leaveMedia();if(activeCallId)await call('/api/calls/'+activeCallId+'/end','POST',{}).catch(()=>{});activeCallId=null;if(isHost){const box=$('media-view');if(box){box.innerHTML='<div class="live-ended-card"><div class="live-ended-avatar">👑</div><h2>Live Ended</h2><p>Thanks for streaming! 💕</p><div class="live-ended-stats"><div><small>Live Title</small><b></b></div><div><small>Room</small><b></b></div></div><button type="button" class="primary" id="ended-home">⌂ Back to Home</button><button type="button" class="primary live-ended-secondary" id="ended-again">◉ Stream Again</button></div>';box.querySelector('.live-ended-stats div:first-child b').textContent=liveTitle;box.querySelector('.live-ended-stats div:nth-child(2) b').textContent='#'+($('room-id')?.value||'—');}document.getElementById('ended-home')?.addEventListener('click',()=>{location.href='index.html'});document.getElementById('ended-again')?.addEventListener('click',()=>{document.getElementById('setup-title').value=liveTitle;document.getElementById('setup-camera').click();document.getElementById('setup-status').textContent='Preview ready. Tap Start Live when ready.';document.getElementById('setup-start-live').scrollIntoView({behavior:'smooth',block:'center'});});document.dispatchEvent(new CustomEvent('fun-live-ended'));}status('Live/call ended.')});
 $('search-user').onclick=()=>action(async()=>{
  const q=$('call-user').value.trim();if(!q)throw Error('Enter username or GO LIVE ID.');
  const r=await call('/api/users/search?q='+encodeURIComponent(q));
