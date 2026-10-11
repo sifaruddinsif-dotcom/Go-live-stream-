@@ -386,7 +386,7 @@ app.post("/api/calls/:id/respond", auth, async (req,res) => {
   } catch { res.status(500).json({error:"Could not respond to call."}); }
 });
 // Fixed 1-to-1 call pricing: caller pays 100 FUN coins/minute; host receives 60, platform share is 40.
-const CALL_RATE_COINS_PER_MINUTE = 100;
+const CALL_RATE_COINS_PER_MINUTE = 2000;
 const CALL_HOST_SHARE_PERCENT = 60;
 app.get("/api/calls/rate", auth, (req,res) => res.json({coinsPerMinute:CALL_RATE_COINS_PER_MINUTE,hostSharePercent:CALL_HOST_SHARE_PERCENT,platformSharePercent:100-CALL_HOST_SHARE_PERCENT}));
 app.post("/api/calls/:id/bill-minute", auth, async (req,res) => {
