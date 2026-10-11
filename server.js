@@ -513,7 +513,7 @@ app.get("/api/admin/users",auth,requireAdmin,async(_req,res)=>{
   catch{res.status(500).json({error:"Could not load users."});}
 });
 app.patch("/api/admin/users/:id/block",auth,requireAdmin,async(req,res)=>{
-  if(!/^\\d+$/.test(req.params.id)) return res.status(400).json({error:"Invalid user ID."});
+  if(!/^\d+$/.test(req.params.id)) return res.status(400).json({error:"Invalid user ID."});
   if(String(req.params.id)===String(req.user.id)) return res.status(400).json({error:"You cannot block your own admin account."});
   const blocked=req.body?.blocked;
   if(typeof blocked!=="boolean") return res.status(400).json({error:"blocked must be true or false."});
