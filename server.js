@@ -456,7 +456,10 @@ app.get("/api/withdrawal/summary", auth, async (req,res) => {
     res.json({diamonds,minimumDiamonds:MIN_WITHDRAWAL_DIAMONDS,diamondsPerUSD:DIAMONDS_PER_USD,usdInrRate:USD_INR_RATE,estimatedUSD:Math.floor(diamonds/DIAMONDS_PER_USD*100)/100,estimatedINR:Math.floor(diamonds/DIAMONDS_PER_USD*USD_INR_RATE*100)/100,withdrawals:p.rows});
   } catch {res.status(500).json({error:"Could not load withdrawal summary."});}
 });
-app.post("/api/withdrawals", auth, async (req,res) => {
+const withdrawalSubmitLimiter = rateLimit({windowMs:60*60*1000,limit:5,standardHeaders:true,legacyHeaders:false,message:{error:"Too many withdrawal attempts. Try again later."}});
+const paymentOrderLimiter = rateLimit({windowMs:15*60*1000,limit:10,standardHeaders:true,legacyHeaders:false,message:{error:"Too many payment attempts. Try again later."}});
+const paymentVerifyLimiter = rateLimit({windowMs:15*60*1000,limit:20,standardHeaders:true,legacyHeaders:false,message:{error:"Too many payment verification attempts. Try again later."}});
+app.post("/api/withdrawals", auth, withdrawalSubmitLimiter, async (req,res) => {
   const diamonds=Number(req.body?.diamonds);
   const payoutDetails=String(req.body?.payoutDetails||"").trim();
   if(!Number.isSafeInteger(diamonds)||diamonds<MIN_WITHDRAWAL_DIAMONDS) return res.status(400).json({error:"Minimum withdrawal is 10,000 diamonds."});
@@ -556,7 +559,7 @@ app.post("/api/live/token", auth, async (req,res) => {
   }
 });
 const COIN_PACKAGES = Object.freeze({9900:900,49900:5000,99900:10500,499000:55000});
-app.post("/api/payments/order", auth, async (req,res) => {
+app.post("/api/payments/order", auth, paymentOrderLimiter, async (req,res) => {
   const amount=Number(req.body?.amountPaise);
   const coins=COIN_PACKAGES[amount];
   if (!Number.isInteger(amount) || !coins) return res.status(400).json({error:"Choose one of the available coin packages."});
@@ -568,7 +571,7 @@ app.post("/api/payments/order", auth, async (req,res) => {
     res.status(201).json({orderId:order.id,amount:order.amount,currency:order.currency,keyId:process.env.RAZORPAY_KEY_ID,coins});
   } catch(e) {console.error("Payment order creation failed:",e?.message||"unknown error");res.status(502).json({error:"Payment provider could not create an order."});}
 });
-app.post("/api/payments/verify", auth, async (req,res) => {
+app.post("/api/payments/verify", auth, paymentVerifyLimiter, async (req,res) => {
   const {orderId,paymentId,signature}=req.body||{};
   if (!orderId||!paymentId||!signature||!process.env.RAZORPAY_KEY_SECRET) return res.status(400).json({error:"Missing payment verification fields or gateway configuration."});
   const expected=crypto.createHmac("sha256",process.env.RAZORPAY_KEY_SECRET).update(String(orderId)+"|"+String(paymentId)).digest("hex");
