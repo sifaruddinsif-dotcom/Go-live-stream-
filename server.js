@@ -536,7 +536,7 @@ app.get("/api/admin/coin-balances",auth,requireAdmin,async(_req,res)=>{
 app.post("/api/admin/coin-credit",auth,requireAdmin,async(req,res)=>{
   const userId=String(req.body?.userId||"").trim();
   const coins=Number(req.body?.coins);
-  if(!/^\d+$/.test(userId)||Number(userId)<1) return res.status(400).json({error:"Enter a valid numeric user ID."});
+  if(userId===""||!Number.isSafeInteger(Number(userId))||Number(userId)<1) return res.status(400).json({error:"Enter a valid numeric user ID."});
   if(!Number.isSafeInteger(coins)||coins<1||coins>1000000000) return res.status(400).json({error:"Enter a whole coin amount from 1 to 1,000,000,000."});
   const client=await pool.connect();
   try{
