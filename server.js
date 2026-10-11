@@ -365,11 +365,14 @@ app.patch("/api/me", auth, async (req,res) => {
 });
 
 app.get("/api/users/search", auth, async (req,res) => {
-  const q=String(req.query.q||"").trim().replace(/^GLS/i,"").replace(/^0+/,"");
-  if(!q || q.length>40) return res.json({users:[]});
+  const raw=String(req.query.q||"").trim();
+  const legacy=raw.replace(/^GLS/i,"").replace(/^0+/,"");
+  const publicNumber=Number(raw);
+  const lookupId=Number.isSafeInteger(publicNumber)&&publicNumber>=7000001?String(publicNumber-7000000):legacy;
+  if(!raw || raw.length>40) return res.json({users:[]});
   try {
-    const r=await pool.query("SELECT id,username FROM users WHERE username ILIKE $1 OR id::text=$2 ORDER BY username LIMIT 10",["%"+q+"%",q]);
-    res.json({users:r.rows.map(u=>({...u,goLiveId:"GLS"+String(u.id).padStart(8,"0")}))});
+    const r=await pool.query("SELECT id,username FROM users WHERE username ILIKE $1 OR id::text=$2 ORDER BY username LIMIT 10",["%"+raw+"%",lookupId]);
+    res.json({users:r.rows.map(u=>({...u,publicId:String(7000000+Number(u.id)),goLiveId:String(7000000+Number(u.id))}))});
   } catch { res.status(500).json({error:"Could not search users."}); }
 });
 app.post("/api/calls", auth, async (req,res) => {
@@ -530,13 +533,14 @@ app.get("/api/admin/hosts",auth,requireAdmin,async(_req,res)=>{
 app.get("/api/admin/coin-balances",auth,requireAdmin,async(_req,res)=>{
   try{
     const r=await pool.query("SELECT u.id,u.username,COALESCE(w.balance,0)::bigint AS coins FROM users u LEFT JOIN wallet_accounts w ON w.user_id=u.id ORDER BY u.id DESC LIMIT 500");
-    res.json({balances:r.rows});
+    res.json({balances:r.rows.map(u=>({...u,internalId:u.id,id:String(7000000+Number(u.id))}))});
   }catch{res.status(500).json({error:"Could not load coin balances."});}
 });
 app.post("/api/admin/coin-credit",auth,requireAdmin,async(req,res)=>{
-  const userId=String(req.body?.userId||"").trim();
+  const publicUserId=String(req.body?.userId||"").trim();
   const coins=Number(req.body?.coins);
-  if(userId===""||!Number.isSafeInteger(Number(userId))||Number(userId)<1) return res.status(400).json({error:"Enter a valid numeric user ID."});
+  if(publicUserId===""||!Number.isSafeInteger(Number(publicUserId))||Number(publicUserId)<7000001) return res.status(400).json({error:"Enter a valid 7-digit FUN LIVE User ID (example: 7008890)."});
+  const userId=String(Number(publicUserId)-7000000);
   if(!Number.isSafeInteger(coins)||coins<1||coins>1000000000) return res.status(400).json({error:"Enter a whole coin amount from 1 to 1,000,000,000."});
   const client=await pool.connect();
   try{
@@ -547,7 +551,7 @@ app.post("/api/admin/coin-credit",auth,requireAdmin,async(req,res)=>{
     const wallet=await client.query("UPDATE wallet_accounts SET balance=balance+$1,updated_at=NOW() WHERE user_id=$2 RETURNING balance",[coins,userId]);
     await client.query("INSERT INTO wallet_transactions(user_id,amount,kind,reference) VALUES($1,$2,'admin_coin_credit',$3)",[userId,coins,"admin:"+String(req.user.id)+";direct FUN LIVE coin credit"]);
     await client.query("COMMIT");
-    res.json({notice:"FUN LIVE coins added successfully.",user:{id:user.rows[0].id,username:user.rows[0].username,balance:wallet.rows[0].balance},coinsAdded:coins});
+    res.json({notice:"FUN LIVE coins added successfully.",user:{id:String(7000000+Number(user.rows[0].id)),username:user.rows[0].username,balance:wallet.rows[0].balance},coinsAdded:coins});
   }catch(e){await client.query("ROLLBACK").catch(()=>{});res.status(500).json({error:"Could not add coins. No coins were credited."});}
   finally{client.release();}
 });
