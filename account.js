@@ -1138,6 +1138,41 @@ async function enterGuestMode(){
 if(token&&endpoint)action(async()=>{const r=await call('/api/me');accountLabel(r.user);});
 if(!token)enterGuestMode();
 action(async()=>{const r=await call('/health');if(!token)status(r.ok&&r.database==='connected'?'Starting GO LIVE guest mode…':'API health check failed.');});
+// Robust Start Live fallback: keep the button responsive even if another handler fails to attach.
+document.addEventListener('click',async e=>{
+ const btn=e.target.closest('#create');
+ if(!btn)return;
+ e.preventDefault();
+ e.stopImmediatePropagation();
+ btn.disabled=true;
+ const original=btn.textContent;
+ btn.textContent='Connecting…';
+ try{
+   if(!token){
+     status('Signing you in securely…');
+     const guest=await call('/api/auth/guest','POST',{});
+     token=guest.token;
+     sessionStorage.setItem('golive_token',token);
+     localStorage.setItem('golive_token',token);
+     if(guest.user)accountLabel(guest.user);
+   }
+   const title=$('room-title')?.value.trim();
+   if(!title)throw Error('Pehle live title likho.');
+   status('Creating your live room…');
+   const result=await call('/api/rooms','POST',{title,kind:'live'});
+   if(!result?.room?.id)throw Error('Room create nahi hua. Please retry.');
+   $('room-id').value=result.room.id;
+   $('room-id-label').textContent='Live room #'+result.room.id+' — share this number with viewers.';
+   status('Room created. Connecting camera and microphone…');
+   await joinMedia(result.room.id);
+   await loadRooms();
+ }catch(err){
+   status('❌ Live start nahi hua: '+(err.message||'Unknown error')+'. Please check camera permission and try again.');
+ }finally{
+   btn.disabled=false;
+   btn.textContent=original;
+ }
+},true);
 })();+safe(w.usd_amount)+' / ₹'+safe(w.inr_amount)+' · '+safe(w.status)+'</p>').join(''):'<p class="note">No withdrawal requests yet.</p>';
  }catch(e){box.textContent=e.message||'Could not load withdrawal balance.';}
 }
