@@ -533,6 +533,24 @@ app.get("/api/admin/coin-balances",auth,requireAdmin,async(_req,res)=>{
     res.json({balances:r.rows});
   }catch{res.status(500).json({error:"Could not load coin balances."});}
 });
+app.post("/api/admin/coin-credit",auth,requireAdmin,async(req,res)=>{
+  const userId=String(req.body?.userId||"").trim();
+  const coins=Number(req.body?.coins);
+  if(!/^\d+$/.test(userId)||Number(userId)<1) return res.status(400).json({error:"Enter a valid numeric user ID."});
+  if(!Number.isSafeInteger(coins)||coins<1||coins>1000000000) return res.status(400).json({error:"Enter a whole coin amount from 1 to 1,000,000,000."});
+  const client=await pool.connect();
+  try{
+    await client.query("BEGIN");
+    const user=await client.query("SELECT id,username FROM users WHERE id=$1 FOR UPDATE",[userId]);
+    if(!user.rowCount){await client.query("ROLLBACK");return res.status(404).json({error:"User ID not found."});}
+    await client.query("INSERT INTO wallet_accounts(user_id,balance) VALUES($1,0) ON CONFLICT(user_id) DO NOTHING",[userId]);
+    const wallet=await client.query("UPDATE wallet_accounts SET balance=balance+$1,updated_at=NOW() WHERE user_id=$2 RETURNING balance",[coins,userId]);
+    await client.query("INSERT INTO wallet_transactions(user_id,amount,kind,reference) VALUES($1,$2,'admin_coin_credit',$3)",[userId,coins,"admin:"+String(req.user.id)+";direct FUN LIVE coin credit"]);
+    await client.query("COMMIT");
+    res.json({notice:"FUN LIVE coins added successfully.",user:{id:user.rows[0].id,username:user.rows[0].username,balance:wallet.rows[0].balance},coinsAdded:coins});
+  }catch(e){await client.query("ROLLBACK").catch(()=>{});res.status(500).json({error:"Could not add coins. No coins were credited."});}
+  finally{client.release();}
+});
 app.post("/api/admin/coin-transfer",auth,requireAdmin,async(req,res)=>{
   const fromId=String(req.body?.fromUserId||"").trim();
   const toId=String(req.body?.toUserId||"").trim();
