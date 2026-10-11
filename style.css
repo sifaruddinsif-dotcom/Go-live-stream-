@@ -369,3 +369,16 @@ body:has(.host-live-ui) .room:has(#media-view) .controls button{
 .host-settings-grid button:active{border-color:#ff35b0;background:#40143d}
 .host-settings-detail{margin-top:12px;padding:10px 12px;border:1px solid #51345c;border-radius:13px;background:#0b0918;color:#f5c9e6;font-size:12px;line-height:1.45;min-height:38px}
 @media(max-width:420px){.host-settings-panel{left:7px;right:7px;top:84px;padding:10px;max-height:calc(100% - 170px)}.host-settings-grid{gap:6px}.host-settings-grid button{min-height:68px;border-radius:13px}.host-settings-grid button span{font-size:10px}}
+
+/* Profile screen spacing fix: keep avatar clear of the header */
+#app{padding-top:12px;padding-bottom:92px;box-sizing:border-box}
+.profile{margin:12px 0 18px;padding:30px 22px 24px;border:1px solid #ffffff0d;border-radius:24px;overflow:visible;box-sizing:border-box}
+.profile .profile-avatar{display:block;width:100px!important;height:100px!important;max-width:100px;max-height:100px;object-fit:cover;border-radius:50%;border:3px solid #ff4eae;margin:0 auto 18px;box-shadow:0 0 0 5px #ff4eae16}
+.profile h2{margin:10px 0 12px;overflow-wrap:anywhere}
+.profile>small{display:block;line-height:1.5}
+.profile .stats{gap:8px;margin:24px 0}
+.profile .stats>div{min-width:0;flex:1}
+.profile .stats strong{font-size:clamp(17px,4.8vw,24px)}
+.profile .stats small{display:block;font-size:12px}
+.profile .primary{margin:6px auto 4px;min-height:48px;padding:0 24px}
+#app>.row{min-height:58px}
