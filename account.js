@@ -1,6 +1,32 @@
 (() => {
 const $=id=>document.getElementById(id);
 
+// Go Live setup preview controls; the existing live-creation pipeline remains the source of truth.
+const setupState={stream:null,muted:false,cameraOff:false,front:true,filter:0,beauty:false,mode:'live'};
+const setupStatus=msg=>{const el=$('setup-status');if(el)el.textContent=msg;};
+async function setupPreview(){
+ if(setupState.stream||setupState.cameraOff)return;
+ try{setupState.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:setupState.front?'user':'environment'},audio:false});const v=$('setup-camera-preview');v.srcObject=setupState.stream;$('setup-camera-placeholder').hidden=true;await v.play().catch(()=>{});setupStatus('Camera preview ready');}
+ catch(e){setupStatus('Camera preview unavailable. Start Live can still request camera access.');}
+}
+function stopSetupPreview(){if(setupState.stream){setupState.stream.getTracks().forEach(t=>t.stop());setupState.stream=null;}const v=$('setup-camera-preview');if(v)v.srcObject=null;}
+if($('setup-start-live'))$('setup-start-live').addEventListener('click',async()=>{
+ if(setupState.mode==='call'){setupStatus('Video Call selected. Use the existing 1-to-1 Video Call section below.');return;}
+ const title=$('setup-title').value.trim();if(!title){setupStatus('Please enter a live title first.');$('setup-title').focus();return;}
+ $('room-title').value=title;const kind=$('room-kind');if(kind)kind.value='live';
+ setupStatus('Starting your live…');stopSetupPreview();$('create').click();
+});
+if($('setup-video-tab'))$('setup-video-tab').onclick=()=>{setupState.mode='live';$('setup-video-tab').classList.add('active');$('setup-call-tab').classList.remove('active');$('setup-start-live').innerHTML='<span>◉</span> Start Live';setupStatus('Video Live selected');};
+if($('setup-call-tab'))$('setup-call-tab').onclick=()=>{setupState.mode='call';$('setup-call-tab').classList.add('active');$('setup-video-tab').classList.remove('active');$('setup-start-live').innerHTML='<span>📞</span> Continue to Video Call';setupStatus('Video Call selected. Use the existing 1-to-1 Video Call section below.');};
+if($('setup-camera'))$('setup-camera').onclick=async()=>{setupState.cameraOff=!setupState.cameraOff;if(setupState.cameraOff){stopSetupPreview();$('setup-camera-placeholder').hidden=false;$('setup-camera-placeholder').querySelector('small').textContent='Camera is off';$('setup-camera').classList.add('disabled');}else{$('setup-camera-placeholder').querySelector('small').textContent='Tap Camera to enable preview';$('setup-camera').classList.remove('disabled');await setupPreview();}};
+if($('setup-mic'))$('setup-mic').onclick=()=>{setupState.muted=!setupState.muted;$('setup-mic').classList.toggle('disabled',setupState.muted);setupStatus(setupState.muted?'Microphone will start muted':'Microphone will start on');};
+if($('setup-flip'))$('setup-flip').onclick=async()=>{setupState.front=!setupState.front;stopSetupPreview();setupStatus('Switching camera…');await setupPreview();};
+if($('setup-beauty'))$('setup-beauty').onclick=()=>{setupState.beauty=!setupState.beauty;$('setup-camera-preview').style.filter=setupState.beauty?'brightness(1.08) saturate(1.12) contrast(1.03)':'none';$('setup-beauty').classList.toggle('selected',setupState.beauty);};
+if($('setup-filter'))$('setup-filter').onclick=()=>{setupState.filter=(setupState.filter+1)%4;const filters=['none','sepia(.16) saturate(1.15)','saturate(1.3) hue-rotate(-8deg)','grayscale(.12) contrast(1.06)'];$('setup-camera-preview').style.filter=filters[setupState.filter];$('setup-filter').classList.toggle('selected',setupState.filter!==0);};
+if($('setup-back'))$('setup-back').onclick=()=>{stopSetupPreview();location.hash='rooms';};
+
+
+
 // Early delegated safety handler: works even if a later legacy handler is overwritten.
 document.addEventListener('click',async function(e){
  const btn=e.target.closest('#create');
