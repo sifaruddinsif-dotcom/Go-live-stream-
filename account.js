@@ -1136,7 +1136,7 @@ async function enterGuestMode(){
  }catch(e){status('Guest access could not start: '+(e.message||'Please refresh and try again.'))}
 }
 if(token&&endpoint)action(async()=>{const r=await call('/api/me');accountLabel(r.user);});
-if(!token)enterGuestMode();
+// Do not silently create a guest session on the login page. Keep login/register visible until the user signs in.
 action(async()=>{const r=await call('/health');if(!token)status(r.ok&&r.database==='connected'?'Starting GO LIVE guest mode…':'API health check failed.');});
 // Directly bind the Start Live button. Avoid document-capture interception,
  // which can make taps appear to do nothing on mobile browsers.
