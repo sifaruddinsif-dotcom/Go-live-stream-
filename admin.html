@@ -45,7 +45,7 @@ $('tabs').addEventListener('click',async e=>{const b=e.target.closest('[data-tab
 $('content').addEventListener('submit',async e=>{
  if(e.target.id!=='coin-credit-form')return;e.preventDefault();
  const userId=$('coin-user-id').value.trim(),coins=Number($('coin-amount').value),result=$('coin-transfer-result');
- if(!/^\\d+$/.test(userId)||Number(userId)<1){result.textContent='Error: Enter a valid numeric user ID.';return}
+ if(!/^\d+$/.test(userId)||Number(userId)<1){result.textContent='Error: Enter a valid numeric user ID.';return}
  if(!Number.isSafeInteger(coins)||coins<1){result.textContent='Error: Enter a valid whole coin amount.';return}
  if(!confirm('Add '+n(coins)+' new FUN LIVE coins directly to user ID '+userId+'?'))return;
  const submit=e.target.querySelector('button[type="submit"]');submit.disabled=true;result.textContent='Adding FUN LIVE coins…';
