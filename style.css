@@ -50,3 +50,75 @@
  .host-live-ui .host-feature-bar button{padding:9px 10px;font-size:11px}
  .host-live-ui .host-room-strip>*{padding:8px 10px}
 }
+
+
+/* Mobile layout correction: keep overlays anchored instead of flowing over each other. */
+.host-live-ui{
+ display:block!important;
+ height:calc(100dvh - 118px)!important;
+ min-height:580px!important;
+ padding:0!important;
+ margin:0!important;
+ border-radius:22px!important;
+ overflow:hidden!important;
+}
+.host-live-ui .host-live-top{
+ position:absolute!important;left:10px!important;right:10px!important;top:10px!important;
+ min-height:76px!important;margin:0!important;
+}
+.host-live-ui .host-room-strip{
+ position:absolute!important;top:96px!important;left:12px!important;right:12px!important;
+ display:flex!important;justify-content:space-between!important;gap:6px!important;flex-wrap:nowrap!important;
+}
+.host-live-ui .host-room-strip>*{min-width:0!important;padding:9px 10px!important;white-space:nowrap!important}
+.host-live-ui .host-live-status{
+ position:absolute!important;left:12px!important;right:12px!important;top:145px!important;
+ margin:0!important;min-height:38px!important;
+}
+.host-live-ui .host-feature-bar{
+ position:absolute!important;left:10px!important;right:10px!important;top:194px!important;
+ display:flex!important;flex-wrap:wrap!important;gap:7px!important;
+}
+.host-live-ui .host-feature-bar button{padding:9px 11px!important}
+.host-live-ui .host-video{
+ position:absolute!important;inset:0!important;width:100%!important;height:100%!important;
+ min-height:100%!important;max-height:none!important;z-index:0!important;
+}
+.host-live-ui .host-chat-overlay{
+ position:absolute!important;left:12px!important;right:82px!important;bottom:88px!important;
+ margin:0!important;display:flex!important;flex-direction:column!important;gap:7px!important;
+}
+.host-live-ui .host-viewer-list{
+ position:absolute!important;right:12px!important;top:43%!important;width:min(205px,58%)!important;
+ margin:0!important;
+}
+.host-live-ui .host-hearts{position:absolute!important;right:14px!important;bottom:96px!important}
+.host-live-ui .host-live-bottom{
+ position:absolute!important;left:10px!important;right:10px!important;bottom:12px!important;
+ display:flex!important;align-items:center!important;gap:8px!important;margin:0!important;
+}
+.host-live-ui .host-gift{flex:0 0 52px!important;width:52px!important;height:52px!important}
+.host-live-ui .host-comment-form{min-width:0!important;max-width:100%!important}
+body:has(.host-live-ui) .room:has(.host-live-ui) .controls{display:none!important}
+body:has(.host-live-ui) #media-view + .controls,
+body:has(.host-live-ui) .room:has(#media-view) .controls{
+ position:fixed!important;left:10px!important;right:10px!important;bottom:8px!important;
+ z-index:25!important;display:flex!important;gap:8px!important;padding:0!important;margin:0!important;
+ background:transparent!important;
+}
+body:has(.host-live-ui) .room:has(#media-view) .controls button{
+ flex:1!important;min-width:0!important;padding:13px 7px!important;font-size:12px!important;
+ border-radius:28px!important;box-shadow:0 5px 20px #0008!important;
+}
+@media(max-width:420px){
+ .host-live-ui{height:calc(100dvh - 112px)!important;min-height:540px!important}
+ .host-live-ui .host-live-top{left:8px!important;right:8px!important;top:8px!important;padding:9px!important}
+ .host-live-ui .host-room-strip{left:8px!important;right:8px!important;top:91px!important}
+ .host-live-ui .host-room-strip>*{font-size:11px!important;padding:8px 8px!important}
+ .host-live-ui .host-live-status{top:137px!important;left:8px!important;right:8px!important}
+ .host-live-ui .host-feature-bar{top:183px!important;left:8px!important;right:8px!important}
+ .host-live-ui .host-feature-bar button{font-size:11px!important;padding:8px 9px!important}
+ .host-live-ui .host-chat-overlay{left:8px!important;right:65px!important;bottom:78px!important}
+ .host-live-ui .host-viewer-list{right:8px!important;width:58%!important}
+ .host-live-ui .host-live-bottom{left:8px!important;right:8px!important;bottom:8px!important}
+}
