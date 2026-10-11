@@ -42,6 +42,14 @@ $('connect').addEventListener('click',async()=>{
  finally{$('connect').disabled=false}
 });
 $('tabs').addEventListener('click',async e=>{const b=e.target.closest('[data-tab]');if(!b)return;current=b.dataset.tab;drawTabs();$('title').textContent=tabs.find(t=>t[0]===current)[1];await load()});
+$('content').addEventListener('input',e=>{
+ if(e.target.id!=='coin-user-id')return;
+ const preview=$('coin-user-preview');if(!preview)return;
+ const id=e.target.value.trim();
+ if(!id){preview.textContent='Enter a User ID to see the account name and current balance.';return}
+ const user=coinBalances.find(u=>String(u.id)===id);
+ preview.textContent=user?'Account: '+user.username+' | FUN LIVE ID: '+user.id+' | Current coins: '+n(user.coins):'No user found for ID '+id+'. Check the 7-digit ID.';
+});
 $('content').addEventListener('submit',async e=>{
  if(e.target.id!=='coin-credit-form')return;e.preventDefault();
  const userId=$('coin-user-id').value.trim(),coins=Number($('coin-amount').value),result=$('coin-transfer-result');
