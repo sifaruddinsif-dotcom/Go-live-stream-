@@ -57,7 +57,7 @@ async function call(path,method='GET',body){
  if(!response.ok)throw Error(json.error||'Request failed');return json;
 }
 async function action(fn){try{await fn()}catch(e){status('⚠️ '+(e.message||'Something went wrong.'));const visibleStatus=$('rooms-status')||$('status');visibleStatus?.scrollIntoView({behavior:'smooth',block:'center'});}}
-function accountLabel(user){const u=typeof user==='string'?{username:user}:user; $('account').textContent='Signed in as '+u.username+(u.id?' · GO LIVE ID: GLS'+String(u.id).padStart(8,'0'):''); if(u.id){localStorage.setItem('golive_user',JSON.stringify({id:u.id,username:u.username,email:u.email||''}));$('logout').hidden=false;}else $('logout').hidden=true;}
+function accountLabel(user){const u=typeof user==='string'?{username:user}:user; $('account').textContent='Signed in as '+u.username+(u.id?' · FUN LIVE ID: '+String(7000000+Number(u.id)):''); if(u.id){localStorage.setItem('golive_user',JSON.stringify({id:u.id,username:u.username,email:u.email||''}));$('logout').hidden=false;}else $('logout').hidden=true;}
 $('register').onclick=()=>action(async()=>{
  const r=await call('/api/auth/register','POST',{email:$('email').value,password:$('password').value,gender:$('register-gender')?.value||'unspecified'});
  token=r.token;sessionStorage.setItem('golive_token',token);accountLabel(r.user);$('password').value='';$('profile-gender').value=r.user.gender||$('register-gender').value;status('Account created with email. You are signed in.');loadWithdrawalSummary();
@@ -616,7 +616,7 @@ async function enterGuestMode(){
   token=r.token;sessionStorage.setItem('golive_token',token);accountLabel(r.user);
   const hero=document.querySelector('.login-hero'),panel=document.querySelector('.login-panel'),rooms=$('rooms'),chat=$('room-chat');
   if(hero)hero.style.display='none';if(panel)panel.style.display='none';if(rooms)rooms.style.display='block';if(chat)chat.style.display='block';
-  status('Welcome to GO LIVE! You are in guest mode. Your GO LIVE ID: GLS'+String(r.user.id).padStart(8,'0'));
+  status('Welcome to FUN LIVE! You are in guest mode. Your FUN LIVE ID: '+String(7000000+Number(r.user.id)));
   await loadRooms();
  }catch(e){status('Guest access could not start: '+(e.message||'Please refresh and try again.'))}
 }
@@ -1131,7 +1131,7 @@ async function enterGuestMode(){
   token=r.token;sessionStorage.setItem('golive_token',token);accountLabel(r.user);
   const hero=document.querySelector('.login-hero'),panel=document.querySelector('.login-panel'),rooms=$('rooms'),chat=$('room-chat');
   if(hero)hero.style.display='none';if(panel)panel.style.display='none';if(rooms)rooms.style.display='block';if(chat)chat.style.display='block';
-  status('Welcome to GO LIVE! You are in guest mode. Your GO LIVE ID: GLS'+String(r.user.id).padStart(8,'0'));
+  status('Welcome to FUN LIVE! You are in guest mode. Your FUN LIVE ID: '+String(7000000+Number(r.user.id)));
   await loadRooms();
  }catch(e){status('Guest access could not start: '+(e.message||'Please refresh and try again.'))}
 }
@@ -1655,7 +1655,7 @@ async function enterGuestMode(){
   token=r.token;sessionStorage.setItem('golive_token',token);accountLabel(r.user);
   const hero=document.querySelector('.login-hero'),panel=document.querySelector('.login-panel'),rooms=$('rooms'),chat=$('room-chat');
   if(hero)hero.style.display='none';if(panel)panel.style.display='none';if(rooms)rooms.style.display='block';if(chat)chat.style.display='block';
-  status('Welcome to GO LIVE! You are in guest mode. Your GO LIVE ID: GLS'+String(r.user.id).padStart(8,'0'));
+  status('Welcome to FUN LIVE! You are in guest mode. Your FUN LIVE ID: '+String(7000000+Number(r.user.id)));
   await loadRooms();
  }catch(e){status('Guest access could not start: '+(e.message||'Please refresh and try again.'))}
 }
