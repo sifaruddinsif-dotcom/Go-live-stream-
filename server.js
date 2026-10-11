@@ -42,6 +42,7 @@ async function initDb() {
       bio VARCHAR(160) NOT NULL DEFAULT '', created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(16) NOT NULL DEFAULT 'unspecified';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN NOT NULL DEFAULT FALSE;
     CREATE TABLE IF NOT EXISTS rooms (
       id BIGSERIAL PRIMARY KEY, owner_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
       title VARCHAR(100) NOT NULL, kind VARCHAR(16) NOT NULL CHECK(kind IN ('voice','live')),
@@ -137,8 +138,9 @@ async function auth(req, res, next) {
   if (!raw.startsWith("Bearer ")) return res.status(401).json({ error: "Sign in required." });
   try {
     const payload = jwt.verify(raw.slice(7), JWT_SECRET, { issuer: "go-live-stream" });
-    const result = await pool.query("SELECT id, username, email, bio, gender, created_at FROM users WHERE id=$1", [payload.sub]);
+    const result = await pool.query("SELECT id, username, email, bio, gender, is_blocked, created_at FROM users WHERE id=$1", [payload.sub]);
     if (!result.rowCount) return res.status(401).json({ error: "Account not found." });
+    if (result.rows[0].is_blocked) return res.status(403).json({ error: "This account has been blocked. Contact FUN LIVE support." });
     req.user = result.rows[0]; next();
   } catch { return res.status(401).json({ error: "Invalid or expired session." }); }
 }
@@ -345,9 +347,10 @@ app.post("/api/auth/login", async (req, res) => {
   const email = String(req.body?.email || "").trim().toLowerCase();
   const password = String(req.body?.password || "");
   try {
-    const result = await pool.query("SELECT id,username,email,bio,created_at,password_hash FROM users WHERE email=$1", [email]);
+    const result = await pool.query("SELECT id,username,email,bio,is_blocked,created_at,password_hash FROM users WHERE email=$1", [email]);
     if (!result.rowCount || !(await bcrypt.compare(password, result.rows[0].password_hash))) return res.status(401).json({ error: "Email or password is incorrect." });
-    const { password_hash, ...user } = result.rows[0];
+    if (result.rows[0].is_blocked) return res.status(403).json({ error: "This account has been blocked. Contact FUN LIVE support." });
+    const { password_hash, is_blocked, ...user } = result.rows[0];
     res.json({ user, token: tokenFor(user) });
   } catch { res.status(500).json({ error: "Could not sign in." }); }
 });
@@ -506,8 +509,19 @@ app.get("/api/admin/overview",auth,requireAdmin,async(_req,res)=>{
   }catch{res.status(500).json({error:"Could not load admin overview."});}
 });
 app.get("/api/admin/users",auth,requireAdmin,async(_req,res)=>{
-  try{const r=await pool.query("SELECT id,username,email,created_at FROM users ORDER BY created_at DESC LIMIT 500");res.json({users:r.rows});}
+  try{const r=await pool.query("SELECT id,username,email,is_blocked,created_at FROM users ORDER BY created_at DESC LIMIT 500");res.json({users:r.rows});}
   catch{res.status(500).json({error:"Could not load users."});}
+});
+app.patch("/api/admin/users/:id/block",auth,requireAdmin,async(req,res)=>{
+  if(!/^\\d+$/.test(req.params.id)) return res.status(400).json({error:"Invalid user ID."});
+  if(String(req.params.id)===String(req.user.id)) return res.status(400).json({error:"You cannot block your own admin account."});
+  const blocked=req.body?.blocked;
+  if(typeof blocked!=="boolean") return res.status(400).json({error:"blocked must be true or false."});
+  try{
+    const r=await pool.query("UPDATE users SET is_blocked=$1 WHERE id=$2 RETURNING id,username,is_blocked",[blocked,req.params.id]);
+    if(!r.rowCount) return res.status(404).json({error:"User not found."});
+    res.json({user:r.rows[0],notice:blocked?"User blocked. Their current sessions will be denied on the next API request.":"User unblocked."});
+  }catch{res.status(500).json({error:"Could not update user status."});}
 });
 app.get("/api/admin/hosts",auth,requireAdmin,async(_req,res)=>{
   try{const r=await pool.query("SELECT u.id,u.username,COUNT(DISTINCT rm.id)::int AS live_rooms,COALESCE(d.balance,0)::bigint AS diamonds FROM users u LEFT JOIN rooms rm ON rm.owner_id=u.id AND rm.kind='live' LEFT JOIN diamond_accounts d ON d.user_id=u.id GROUP BY u.id,u.username,d.balance ORDER BY live_rooms DESC,u.created_at DESC LIMIT 500");res.json({hosts:r.rows});}
