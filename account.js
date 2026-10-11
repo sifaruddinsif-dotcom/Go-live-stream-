@@ -59,13 +59,21 @@ async function call(path,method='GET',body){
 async function action(fn){try{await fn()}catch(e){status('⚠️ '+(e.message||'Something went wrong.'));const visibleStatus=$('rooms-status')||$('status');visibleStatus?.scrollIntoView({behavior:'smooth',block:'center'});}}
 function accountLabel(user){const u=typeof user==='string'?{username:user}:user; $('account').textContent='Signed in as '+u.username+(u.id?' · GO LIVE ID: GLS'+String(u.id).padStart(8,'0'):''); if(u.id){localStorage.setItem('golive_user',JSON.stringify({id:u.id,username:u.username,email:u.email||''}));$('logout').hidden=false;}else $('logout').hidden=true;}
 $('register').onclick=()=>action(async()=>{
- const r=await call('/api/auth/register','POST',{email:$('email').value,password:$('password').value});
- token=r.token;sessionStorage.setItem('golive_token',token);accountLabel(r.user);$('password').value='';status('Account created with email. You are signed in.');
+ const r=await call('/api/auth/register','POST',{email:$('email').value,password:$('password').value,gender:$('register-gender')?.value||'unspecified'});
+ token=r.token;sessionStorage.setItem('golive_token',token);accountLabel(r.user);$('password').value='';$('profile-gender').value=r.user.gender||$('register-gender').value;status('Account created with email. You are signed in.');
 });
 $('login').onclick=()=>action(async()=>{
  const r=await call('/api/auth/login','POST',{email:$('email').value,password:$('password').value});
- token=r.token;sessionStorage.setItem('golive_token',token);accountLabel(r.user);status('Signed in successfully.');
+ token=r.token;sessionStorage.setItem('golive_token',token);accountLabel(r.user);await loadProfileGender();status('Signed in successfully.');
 });
+$('save-gender').onclick=()=>action(async()=>{
+ const gender=$('profile-gender').value;
+ if(!['male','female','other'].includes(gender))throw Error('Choose Male, Female, or Other.');
+ const r=await call('/api/me','PATCH',{gender});
+ $('profile-gender').value=r.user.gender;
+ status('Profile gender saved.');
+});
+async function loadProfileGender(){try{const r=await call('/api/me');if(r.user?.gender)$('profile-gender').value=r.user.gender;}catch{}}
 $('logout').onclick=async()=>{await leaveMedia();token='';sessionStorage.removeItem('golive_token');accountLabel('Signed out.');localStorage.removeItem('golive_user');status('You have signed out.')};
 $('refresh').onclick=()=>action(async()=>{
  const r=await call('/api/rooms');const lives=r.rooms.filter(x=>x.kind==='live');$('room-list').innerHTML=lives.length?lives.map(x=>'<div class="row"><span>'+safe(x.title)+'</span><small>Live #'+safe(x.id)+' · '+safe(x.host)+'</small><button class="primary" data-join="'+safe(x.id)+'">Watch Live</button></div>').join(''):'<p>No live streams right now.</p>';status('Live streams refreshed.');
@@ -344,7 +352,7 @@ $('leave-media').onclick=()=>action(async()=>{await leaveMedia();if(activeCallId
 $('search-user').onclick=()=>action(async()=>{
  const q=$('call-user').value.trim();if(!q)throw Error('Enter username or GO LIVE ID.');
  const r=await call('/api/users/search?q='+encodeURIComponent(q));
- $('user-results').innerHTML=r.users.length?r.users.map(u=>'<div class="user-call-card"><span class="user-call-avatar">👤</span><span class="user-call-meta"><b>'+safe(u.username)+'</b><small>'+safe(u.goLiveId)+' · 🔒 Private 1-to-1</small></span><button type="button" data-user-id="'+safe(u.id)+'" data-user-name="'+safe(u.username)+'">📹 Call Now</button></div>').join(''):'<p>No user found. Ask them to create an account first.</p>';
+ $('user-results').innerHTML=r.users.length?r.users.map(u=>'<div class="user-call-card"><span class="user-call-avatar">👤</span><span class="user-call-meta"><b>'+safe(u.username)+'</b><small>'+safe(u.goLiveId)+' · '+safe(u.gender||'unspecified')+' · 🔒 Private 1-to-1</small></span><button type="button" data-user-id="'+safe(u.id)+'" data-user-name="'+safe(u.username)+'">📹 Call Now</button></div>').join(''):'<p>No user found. Ask them to create an account first.</p>';
 });
 document.addEventListener('click',e=>{const b=e.target.closest('[data-user-id]');if(b){selectedCallUser={id:b.dataset.userId,name:b.dataset.userName};$('create-call').disabled=false;if(b.textContent.includes('Call Now'))$('create-call').click();else status('Selected '+selectedCallUser.name+'. Tap Call Selected User.')}});
 $('create-call').onclick=()=>action(async()=>{
