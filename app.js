@@ -28,7 +28,7 @@ else html='<h1 class="title">More</h1>'+rows(['🎯 Task Center','🏆 Level Sys
 app.innerHTML=html;
 if(p==='Task Center') loadDailyRewardStatus();
 document.querySelectorAll('nav [data-page]').forEach(b=>b.style.color=b.dataset.page===p?'#ff60ad':'#aaa8c1');window.scrollTo(0,0)}
-function dailyApi(){return (localStorage.getItem('golive_api_endpoint')||'https://go-live-stream-api.onrender.com').replace(/\\/$/,'')}
+function dailyApi(){return (localStorage.getItem('golive_api_endpoint')||'https://go-live-stream-api.onrender.com').replace(/\/$/,'')}
 function dailyToken(){return localStorage.getItem('golive_token')||sessionStorage.getItem('golive_token')||''}
 async function loadDailyRewardStatus(){
  const status=document.getElementById('daily-reward-status'),btn=document.getElementById('daily-reward-btn'),balance=document.getElementById('daily-reward-balance');
@@ -48,7 +48,7 @@ function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':
 function rows(a){return a.map(x=>'<div class="row" data-row><span>'+x.split(' ')[0]+'</span><span>'+x.substring(x.indexOf(' ')+1)+'</span><b>›</b></div>').join('')}
 function giftGrid(){return '<div class="coins">'+[['🌹 Rose',1],['💗 Heart',10],['👑 Crown',100],['🦁 Lion',999],['🚗 Supercar',2999],['💎 Diamond',5000]].map(g=>'<button class="coin" data-gift="'+g[1]+'">'+g[0]+'<strong>'+g[1]+' demo coins</strong></button>').join('')+'</div>'}
 function toast(s){let t=document.querySelector('#toast');t.textContent=s;t.style.display='block';clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>t.style.display='none',2600)}
-document.addEventListener('click',e=>{
+document.addEventListener('click',async e=>{
 let b=e.target.closest('[data-page]');if(b){render(b.dataset.page);return}
 let f=e.target.closest('[data-follow]');if(f){let n=f.dataset.follow;state.following=state.following.includes(n)?state.following.filter(x=>x!==n):[...state.following,n];save();if(page==='Home'||page==='Explore')render();toast(state.following.includes(n)?'Following '+n:'Unfollowed '+n);return}
 let filter=e.target.closest('[data-filter]');if(filter){document.querySelectorAll('[data-filter]').forEach(x=>x.classList.toggle('active',x===filter));let list=filter.dataset.filter==='Following'?hosts.filter(h=>state.following.includes(h[0])):filter.dataset.filter==='New'?hosts.slice().reverse():filter.dataset.filter==='Nearby'?hosts.filter(h=>h[1]==='India'):hosts;let el=document.querySelector('#host-list');if(el)el.innerHTML=list.length?cards(list):'<p class="note">No followed hosts yet. Tap Follow on a host.</p>';return}
