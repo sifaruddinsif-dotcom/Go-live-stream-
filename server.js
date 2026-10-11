@@ -54,6 +54,15 @@ async function initDb() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS messages_room_created_idx ON messages(room_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS direct_messages (
+      id BIGSERIAL PRIMARY KEY,
+      sender_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      recipient_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      body VARCHAR(1000) NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS direct_messages_pair_created_idx ON direct_messages(sender_id, recipient_id, created_at DESC);
+
     CREATE TABLE IF NOT EXISTS call_requests (
       id BIGSERIAL PRIMARY KEY,
       caller_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -385,6 +394,50 @@ app.patch("/api/me", auth, async (req,res) => {
   } catch { res.status(500).json({ error: "Could not update profile." }); }
 });
 
+
+app.get("/api/messages/conversations", auth, async (req,res) => {
+  try {
+    const r=await pool.query(`
+      SELECT DISTINCT ON (peer_id) peer_id, username, body, created_at, sender_id
+      FROM (
+        SELECT CASE WHEN d.sender_id=$1 THEN d.recipient_id ELSE d.sender_id END AS peer_id,
+               u.username, d.body, d.created_at, d.sender_id
+        FROM direct_messages d
+        JOIN users u ON u.id=CASE WHEN d.sender_id=$1 THEN d.recipient_id ELSE d.sender_id END
+        WHERE d.sender_id=$1 OR d.recipient_id=$1
+      ) x
+      ORDER BY peer_id, created_at DESC
+    `,[req.user.id]);
+    res.json({conversations:r.rows.map(m=>({...m,unread:false}))});
+  } catch {res.status(500).json({error:"Could not load inbox."});}
+});
+app.get("/api/messages/:userId", auth, async (req,res) => {
+  const peer=String(req.params.userId||"");
+  if(!/^\\d+$/.test(peer)||peer===String(req.user.id)) return res.status(400).json({error:"Choose another valid user."});
+  try {
+    const u=await pool.query("SELECT id,username FROM users WHERE id=$1",[peer]);
+    if(!u.rowCount)return res.status(404).json({error:"User not found."});
+    const r=await pool.query(`
+      SELECT d.id,d.sender_id,d.recipient_id,d.body,d.created_at,u.username AS sender_name
+      FROM direct_messages d JOIN users u ON u.id=d.sender_id
+      WHERE (d.sender_id=$1 AND d.recipient_id=$2) OR (d.sender_id=$2 AND d.recipient_id=$1)
+      ORDER BY d.created_at ASC LIMIT 200
+    `,[req.user.id,peer]);
+    res.json({peer:u.rows[0],messages:r.rows});
+  } catch {res.status(500).json({error:"Could not load conversation."});}
+});
+app.post("/api/messages/:userId", auth, async (req,res) => {
+  const peer=String(req.params.userId||"");
+  const body=String(req.body?.body||"").trim();
+  if(!/^\\d+$/.test(peer)||peer===String(req.user.id))return res.status(400).json({error:"Choose another valid user."});
+  if(!body||body.length>1000)return res.status(400).json({error:"Message must be 1–1000 characters."});
+  try {
+    const u=await pool.query("SELECT id FROM users WHERE id=$1",[peer]);
+    if(!u.rowCount)return res.status(404).json({error:"User not found."});
+    const r=await pool.query("INSERT INTO direct_messages(sender_id,recipient_id,body) VALUES($1,$2,$3) RETURNING id,sender_id,recipient_id,body,created_at",[req.user.id,peer,body]);
+    res.status(201).json({message:r.rows[0]});
+  } catch {res.status(500).json({error:"Could not send message."});}
+});
 app.get("/api/users/search", auth, async (req,res) => {
   const raw=String(req.query.q||"").trim();
   const legacy=raw.replace(/^GLS/i,"").replace(/^0+/,"");
