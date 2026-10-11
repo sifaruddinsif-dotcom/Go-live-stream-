@@ -470,3 +470,22 @@ body:has(.host-live-ui) .room:has(#media-view) .controls button{
 .level-tile span{color:#fff;text-shadow:0 1px 3px #0008}
 .level-tile small{font-size:clamp(7px,2vw,11px);color:#fff;text-shadow:0 1px 3px #0009}
 @media(max-width:360px){.level-grid{gap:3px;padding:6px}.level-tile{border-radius:6px}}
+
+/* Send Level — approved cyan/blue neon theme */
+.level-grid.send-level-grid{background:linear-gradient(145deg,#080f2c,#0a0c20)!important;border-color:#1649a5!important;box-shadow:inset 0 0 22px #008cff20!important}
+.level-grid.send-level-grid .level-tile{background:linear-gradient(145deg,#063e87,#101b55)!important;border:1.5px solid #087cff!important;color:#fff!important;opacity:1!important;box-shadow:inset 0 0 8px #00c8ff30,0 0 5px #087cff33!important}
+.level-grid.send-level-grid .level-tile:nth-child(n+11):nth-child(-n+20){background:linear-gradient(145deg,#075b79,#07314e)!important;border-color:#00e7e7!important}
+.level-grid.send-level-grid .level-tile:nth-child(n+21):nth-child(-n+30){background:linear-gradient(145deg,#2510a1,#100e4b)!important;border-color:#8d4dff!important}
+.level-grid.send-level-grid .level-tile:nth-child(n+31):nth-child(-n+40){background:linear-gradient(145deg,#0756a6,#09235b)!important;border-color:#23a7ff!important}
+.level-grid.send-level-grid .level-tile:nth-child(n+41):nth-child(-n+50){background:linear-gradient(145deg,#087b8b,#064052)!important;border-color:#00f0ff!important}
+.level-grid.send-level-grid .level-tile:nth-child(n+51):nth-child(-n+60){background:linear-gradient(145deg,#183eb1,#0b1b5d)!important;border-color:#477dff!important}
+.level-grid.send-level-grid .level-tile:nth-child(n+61):nth-child(-n+70){background:linear-gradient(145deg,#064f75,#08263f)!important;border-color:#00d5e8!important}
+.level-grid.send-level-grid .level-tile:nth-child(n+71):nth-child(-n+80){background:linear-gradient(145deg,#1426a0,#0a164f)!important;border-color:#466dff!important}
+.level-grid.send-level-grid .level-tile:nth-child(n+81):nth-child(-n+90){background:linear-gradient(145deg,#075c9e,#09254f)!important;border-color:#20baff!important}
+.level-grid.send-level-grid .level-tile:nth-child(n+91):nth-child(-n+100){background:linear-gradient(145deg,#075b79,#07304b)!important;border-color:#00e5ff!important}
+.level-grid.send-level-grid .level-tile.current{background:linear-gradient(135deg,#00e5ff,#1245ff)!important;border:2px solid #74f6ff!important;box-shadow:0 0 14px #00cfffbb,inset 0 0 8px #ffffff55!important}
+.level-grid.send-level-grid .level-tile.unlocked{filter:brightness(1.2)!important}
+.level-grid.send-level-grid .level-tile span,.level-grid.send-level-grid .level-tile small{color:#fff!important;text-shadow:0 1px 3px #0009}
+.level-switch button.active[data-level-type="wallet"]{background:linear-gradient(110deg,#00dff5,#193cff)!important;border-color:#53efff!important;box-shadow:0 0 15px #00aaff55!important}
+.level-summary-card:has(+ .level-grid-heading #level-grid-title){border-color:#00cfff}
+.level-summary-card:has(+ .level-grid-heading #level-grid-title) .level-badge{box-shadow:0 0 15px #00cfff55}
