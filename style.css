@@ -287,3 +287,6 @@ body:has(.host-live-ui) .room:has(#media-view) .controls button{
 
 /* Approved reference: hide the technical camera/microphone connection banner. */
 .host-live-ui #media-connection-status{display:none!important}
+
+/* Hide the floating viewer card in the host's own live preview. */
+.host-live-ui #host-viewer-list{display:none!important}
