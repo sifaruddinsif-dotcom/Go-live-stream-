@@ -115,13 +115,65 @@ body:has(.private-call-ui) .controls{display:none!important}
 .private-call-privacy-note{font-size:11px;text-align:center;color:#ffc4e4;background:#240f2bd9;border:1px solid #71365f;border-radius:12px;padding:8px;margin:4px 0}
 .private-call-ui.privacy-obscured .private-call-stage video{filter:blur(22px)!important;opacity:.2!important}
 @media print{.private-call-ui{display:none!important}}
+
+/* FUN LIVE withdrawal dashboard refresh */
+.withdrawal-room{background:linear-gradient(155deg,#fff 0%,#fff4fa 55%,#f8eaff 100%)!important;border:1px solid #ffd1e7!important;border-radius:24px!important;padding:18px!important;box-shadow:0 12px 32px #c32b7220!important;overflow:hidden}
+.withdrawal-hero{position:relative;padding:20px 18px;border-radius:20px;background:linear-gradient(125deg,#ff2c87,#f34eb1 58%,#a855f7);color:white;overflow:hidden;margin-bottom:15px}
+.withdrawal-hero:after{content:'💎';position:absolute;right:12px;bottom:-13px;font-size:76px;opacity:.32;transform:rotate(-12deg)}
+.withdrawal-eyebrow{font-size:12px;letter-spacing:1.3px;text-transform:uppercase;opacity:.9;font-weight:800}
+.withdrawal-hero h2{font-size:23px;margin:8px 0 5px;color:#fff}
+.withdrawal-hero p{margin:0;font-size:13px;opacity:.95;max-width:75%}
+.withdrawal-balance{font-size:31px;font-weight:900;margin-top:13px;letter-spacing:-.7px}
+.withdrawal-balance small{font-size:13px;font-weight:600;letter-spacing:0}
+.withdrawal-chip{display:inline-flex;margin-top:12px;padding:7px 10px;border-radius:30px;background:#ffffff2b;border:1px solid #ffffff55;font-size:12px;font-weight:800}
+.withdrawal-rate-card{padding:15px;border-radius:17px;background:#fff;border:1px solid #f4d9e9;margin:12px 0}
+.withdrawal-rate-card h3{margin:0 0 11px;font-size:15px;color:#31223d}
+.withdrawal-rate-row{display:flex;align-items:center;gap:10px;padding:8px 0;color:#4a4054;font-size:14px}
+.withdrawal-rate-icon{width:32px;height:32px;border-radius:11px;display:grid;place-items:center;background:#f7e7ff;font-size:18px;flex-shrink:0}
+.withdrawal-estimate{margin-top:10px;padding:13px;border-radius:14px;background:linear-gradient(120deg,#fff0f7,#f7eaff);color:#e31b79;font-weight:800;font-size:16px;line-height:1.6}
+.withdrawal-minimum{display:flex;gap:11px;align-items:center;background:#fff1f7;border:1px solid #ffc9e2;border-radius:16px;padding:13px;margin:12px 0}
+.withdrawal-minimum .big-icon{font-size:27px}
+.withdrawal-minimum strong{display:block;color:#e51c7c;font-size:14px}
+.withdrawal-minimum span{display:block;font-size:12px;color:#73556b;margin-top:4px;line-height:1.45}
+.withdrawal-field-label{display:block;font-size:13px;font-weight:800;color:#39273e;margin:14px 0 7px}
+.withdrawal-room .field{background:#fff!important;border:1px solid #eadce8!important;border-radius:14px!important;min-height:50px;box-shadow:0 2px 6px #8d52700b}
+.withdrawal-room .field input{min-width:0;font-size:15px}
+.withdrawal-room .primary{width:100%;border:0!important;border-radius:15px!important;background:linear-gradient(100deg,#ff287f,#ec258f)!important;color:#fff!important;font-weight:800!important;min-height:50px;box-shadow:0 7px 16px #ed258f2e;margin-top:12px}
+.withdrawal-notes{font-size:12px;color:#76677a;line-height:1.65;padding:12px 4px 0}
+.withdrawal-history-title{margin:22px 0 10px;font-size:17px;color:#2d2035}
+.withdrawal-history-card{background:#fff;border:1px solid #f0deea;border-radius:14px;padding:12px;margin:8px 0;font-size:13px;overflow-wrap:anywhere}
+.withdrawal-history-card strong{color:#34233d}
+.withdrawal-status-pill{display:inline-block;background:#fff0c2;color:#805600;border-radius:30px;padding:5px 9px;font-size:11px;font-weight:800}
+@media(min-width:700px){.withdrawal-room{max-width:620px;margin:22px auto!important;padding:24px!important}.withdrawal-hero{padding:26px}.withdrawal-hero h2{font-size:28px}}
 </style></head><body><div class="shell"><header><a class="logo" href="index.html">♛ FUN <b>LIVE</b></a><a href="index.html">⌂ Home</a></header>
 <section class="login-hero"><div class="language">English⌄</div><div class="crown">♛</div><div class="brand">FUN <b>LIVE</b></div><div class="tagline">Fun Your Moments</div></section>
 <main class="login-panel"><div class="switch"><button type="button" id="login-tab" class="active">Login</button><button type="button" id="register-tab">Register</button></div><p id="status" class="note" role="status">Sign in to join FUN LIVE.</p>
 <label class="field"><span>✉</span><input id="email" type="email" autocomplete="email" required placeholder="Email address"></label><label class="field"><span>👤</span><select id="register-gender" aria-label="Gender"><option value="unspecified">Choose gender</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></select></label><label class="field"><span>🔒</span><input id="password" type="password" minlength="10" autocomplete="current-password" placeholder="Password"></label>
 <a class="forgot" href="#" id="forgot">Forgot Password?</a><button class="primary" id="login">Login</button><button class="primary" id="register" hidden>Create account</button>
 <div class="or">OR</div><div class="socials"><button type="button" aria-label="Google sign in" data-social="Google">G</button><button type="button" aria-label="Facebook sign in" data-social="Facebook">f</button><button type="button" aria-label="Apple sign in" data-social="Apple">●</button><button type="button" aria-label="Phone sign in" data-social="Phone">☎</button></div><div class="switchline" id="switchline">Don't have an account? <button type="button" id="create-now">Create now</button></div><p id="account" class="note"></p></main>
-<section id="rooms">\n<div class="room"><h2>💎 Host Diamonds & Withdrawal</h2><p class="note">Minimum withdrawal: 10,000 diamonds. Conversion is calculated in USD then INR; requests need manual review.</p><div id="withdrawal-summary" class="note">Loading diamond balance…</div><label class="field"><span>💎</span><input class="input" id="withdrawal-diamonds" type="number" min="10000" step="1" placeholder="Diamonds to withdraw"></label><label class="field"><span>🏦</span><input class="input" id="withdrawal-payout" maxlength="500" placeholder="UPI ID / bank payout details"></label><button class="primary" id="submit-withdrawal">Request Withdrawal</button><div id="withdrawal-history"></div></div>\n<div class="room"><h2>👤 Profile Gender</h2><p class="note">Male profile can call female hosts. Female profile can receive paid private calls. Choose accurately.</p><select class="input" id="profile-gender"><option value="unspecified">Choose gender</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></select><button class="primary" id="save-gender">Save Profile Gender</button></div>\n<div class="room"><h2>🏆 Weekly Rank & 🪙 Coin Store</h2><p class="note">Weekly creator ranking and optional coin purchase.</p><button class="primary" id="open-rankings">🏆 Weekly Ranking</button><div id="weekly-rankings"></div><div class="live-tool-panel"><b>🪙 Buy FUN Coins</b><p class="note">Payments are available only after secure Razorpay credentials are configured.</p><div id="coin-store"><button class="primary" type="button" data-coin-package="9900">900 coins · ₹99</button><button class="primary" type="button" data-coin-package="49900">5,000 coins · ₹499</button><button class="primary" type="button" data-coin-package="99900">10,500 coins · ₹999</button><button class="primary" type="button" data-coin-package="499000">55,000 coins · ₹4,990</button></div><p class="note" id="coin-store-status">Coin purchases will show an error until Razorpay is configured.</p></div></div>
+<section id="rooms">\n<div class="room withdrawal-room">
+  <div class="withdrawal-hero">
+    <div class="withdrawal-eyebrow">FUN LIVE · Creator wallet</div>
+    <h2>Diamonds & Withdrawal</h2>
+    <p>Your gifts and private-call earnings, all in one place.</p>
+    <div class="withdrawal-balance" id="withdrawal-diamond-display">💎 — <small>diamonds</small></div>
+    <div class="withdrawal-chip">🔒 Secure request · Admin review</div>
+  </div>
+  <div id="withdrawal-summary" class="withdrawal-rate-card" aria-live="polite">Loading your diamond balance and conversion rate…</div>
+  <div class="withdrawal-minimum">
+    <div class="big-icon">💎</div><div><strong>Minimum withdrawal: 10,000 diamonds</strong><span>You can submit a request when your available balance is at least 10,000 diamonds.</span></div>
+  </div>
+  <label class="withdrawal-field-label" for="withdrawal-diamonds">Diamonds to withdraw</label>
+  <label class="field"><span>💎</span><input class="input" id="withdrawal-diamonds" type="number" min="10000" step="1" inputmode="numeric" placeholder="Enter at least 10,000"></label>
+  <div class="withdrawal-estimate" id="withdrawal-estimate">Estimated value will be shown using the current configured conversion rate.</div>
+  <label class="withdrawal-field-label" for="withdrawal-payout">UPI ID or bank payout details</label>
+  <label class="field"><span>🏦</span><input class="input" id="withdrawal-payout" maxlength="500" autocomplete="off" placeholder="Example: name@upi"></label>
+  <button class="primary" id="submit-withdrawal" type="button">Request Withdrawal →</button>
+  <div class="withdrawal-notes">ⓘ Conversion uses the rate configured by FUN LIVE, not a live foreign-exchange quote. Submitting a request does not transfer money automatically. Your request remains pending until reviewed and paid by an administrator.</div>
+  <h3 class="withdrawal-history-title">🧾 Withdrawal History</h3>
+  <div id="withdrawal-history"><p class="note">Your recent requests will appear here.</p></div>
+</div>
+<div class="room"><h2>👤 Profile Gender</h2><p class="note">Male profile can call female hosts. Female profile can receive paid private calls. Choose accurately.</p><select class="input" id="profile-gender"><option value="unspecified">Choose gender</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></select><button class="primary" id="save-gender">Save Profile Gender</button></div>\n<div class="room"><h2>🏆 Weekly Rank & 🪙 Coin Store</h2><p class="note">Weekly creator ranking and optional coin purchase.</p><button class="primary" id="open-rankings">🏆 Weekly Ranking</button><div id="weekly-rankings"></div><div class="live-tool-panel"><b>🪙 Buy FUN Coins</b><p class="note">Payments are available only after secure Razorpay credentials are configured.</p><div id="coin-store"><button class="primary" type="button" data-coin-package="9900">900 coins · ₹99</button><button class="primary" type="button" data-coin-package="49900">5,000 coins · ₹499</button><button class="primary" type="button" data-coin-package="99900">10,500 coins · ₹999</button><button class="primary" type="button" data-coin-package="499000">55,000 coins · ₹4,990</button></div><p class="note" id="coin-store-status">Coin purchases will show an error until Razorpay is configured.</p></div></div>
 <div class="room"><h2>🔴 FUN LIVE STREAM</h2><p class="note">Start a live video broadcast. Share the room number so viewers can join.</p>
 <input class="input" id="room-title" maxlength="100" placeholder="Live title (e.g. My Live)">
 <input type="hidden" id="room-kind" value="live">
