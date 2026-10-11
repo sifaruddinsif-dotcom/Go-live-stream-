@@ -1138,15 +1138,12 @@ async function enterGuestMode(){
 if(token&&endpoint)action(async()=>{const r=await call('/api/me');accountLabel(r.user);});
 if(!token)enterGuestMode();
 action(async()=>{const r=await call('/health');if(!token)status(r.ok&&r.database==='connected'?'Starting GO LIVE guest mode…':'API health check failed.');});
-// Robust Start Live fallback: keep the button responsive even if another handler fails to attach.
-document.addEventListener('click',async e=>{
- const btn=e.target.closest('#create');
- if(!btn)return;
- e.preventDefault();
- e.stopImmediatePropagation();
- btn.disabled=true;
+// Directly bind the Start Live button. Avoid document-capture interception,
+ // which can make taps appear to do nothing on mobile browsers.
+$('create').onclick=async()=>{
+ const btn=$('create');
  const original=btn.textContent;
- btn.textContent='Connecting…';
+ btn.disabled=true;btn.textContent='Connecting…';
  try{
    if(!token){
      status('Signing you in securely…');
@@ -1167,12 +1164,11 @@ document.addEventListener('click',async e=>{
    await joinMedia(result.room.id);
    await loadRooms();
  }catch(err){
-   status('❌ Live start nahi hua: '+(err.message||'Unknown error')+'. Please check camera permission and try again.');
+   status('❌ Live start nahi hua: '+(err.message||'Unknown error')+'. Camera permission check karke try karo.');
  }finally{
-   btn.disabled=false;
-   btn.textContent=original;
+   btn.disabled=false;btn.textContent=original;
  }
-},true);
+};
 })();+safe(w.usd_amount)+' / ₹'+safe(w.inr_amount)+' · '+safe(w.status)+'</p>').join(''):'<p class="note">No withdrawal requests yet.</p>';
  }catch(e){box.textContent=e.message||'Could not load withdrawal balance.';}
 }
