@@ -122,3 +122,44 @@ body:has(.host-live-ui) .room:has(#media-view) .controls button{
  .host-live-ui .host-viewer-list{right:8px!important;width:58%!important}
  .host-live-ui .host-live-bottom{left:8px!important;right:8px!important;bottom:8px!important}
 }
+
+
+/* Correct the parent flex layout so the live stage uses the full phone width. */
+.room:has(.host-live-ui){
+ display:block!important;
+ width:100%!important;
+ max-width:100%!important;
+ min-width:0!important;
+ padding:0!important;
+ margin:0!important;
+ border:0!important;
+ border-radius:0!important;
+ background:transparent!important;
+ overflow:visible!important;
+}
+.room:has(.host-live-ui) #media-view{
+ display:block!important;
+ width:100%!important;
+ max-width:100%!important;
+ min-width:0!important;
+ margin:0!important;
+ padding:0!important;
+ flex:none!important;
+}
+.room:has(.host-live-ui) #room-id-label{display:none!important}
+.room:has(.host-live-ui) .controls{
+ display:flex!important;
+ width:100%!important;
+}
+.host-live-ui{
+ width:100%!important;
+ max-width:100%!important;
+ min-width:0!important;
+ margin:0!important;
+}
+.host-live-ui .host-video{pointer-events:none!important}
+.host-live-ui .host-video video{display:block!important;object-fit:cover!important}
+@media(max-width:520px){
+ .room:has(.host-live-ui){padding:0!important}
+ .host-live-ui{border-radius:18px!important}
+}
