@@ -433,6 +433,18 @@ app.post("/api/auth/login", async (req, res) => {
   } catch { res.status(500).json({ error: "Could not sign in." }); }
 });
 app.get("/api/me", auth, (req,res) => res.json({ user: req.user }));
+
+app.get("/api/me/profile-stats", auth, async (req,res) => {
+  try {
+    const [following,followers,friends] = await Promise.all([
+      pool.query("SELECT COUNT(*)::int AS count FROM follows WHERE follower_id=$1",[req.user.id]),
+      pool.query("SELECT COUNT(*)::int AS count FROM follows WHERE following_id=$1",[req.user.id]),
+      pool.query("SELECT COUNT(*)::int AS count FROM follows a JOIN follows b ON b.follower_id=a.following_id AND b.following_id=a.follower_id WHERE a.follower_id=$1",[req.user.id])
+    ]);
+    res.json({following:following.rows[0].count,followers:followers.rows[0].count,friends:friends.rows[0].count});
+  } catch { res.status(500).json({error:"Could not load profile statistics."}); }
+});
+
 app.patch("/api/me", auth, async (req,res) => {
   const bio = String(req.body?.bio ?? req.user.bio).trim();
   if (bio.length > 160) return res.status(400).json({ error: "Bio must be 160 characters or fewer." });
