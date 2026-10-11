@@ -227,3 +227,56 @@ body:has(.host-live-ui) .room:has(#media-view) .controls button{
  .host-live-ui .host-more-bottom{flex-basis:38px!important;width:38px!important;height:38px!important;font-size:18px!important}
  .host-live-ui .host-live-bottom{gap:6px!important}
 }
+
+
+/* Approved FUN LIVE host layout */
+.host-live-ui{position:relative!important;display:block!important;width:100%!important;height:calc(100dvh - 118px)!important;min-height:560px!important;padding:0!important;margin:0!important;overflow:hidden!important;border-radius:0!important;background:#080510!important;color:#fff!important}
+.host-live-ui .host-video{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;min-height:100%!important;z-index:0!important;background:#090711!important}
+.host-live-ui .host-video video{width:100%!important;height:100%!important;object-fit:cover!important}
+.host-live-ui .host-live-top{position:absolute!important;top:8px!important;left:10px!important;right:10px!important;z-index:8!important;display:flex!important;align-items:center!important;gap:7px!important;min-height:70px!important;padding:8px!important;border-radius:22px!important;background:linear-gradient(100deg,#10091feF,#160a21c9)!important;border:1px solid #ffffff12!important}
+.host-live-ui .host-profile-block{display:flex!important;align-items:center!important;gap:8px!important;min-width:0!important;flex:1 1 auto!important}
+.host-live-ui .host-avatar{width:48px!important;height:48px!important;flex:0 0 48px!important;border-radius:50%!important;display:grid!important;place-items:center!important;background:linear-gradient(135deg,#ff3297,#6b39ff)!important;border:2px solid #ff69c6!important;color:#fff!important;font-size:21px!important;font-weight:800!important}
+.host-live-ui .host-title-block{display:flex!important;flex-direction:column!important;gap:2px!important;min-width:0!important;flex:1!important}
+.host-live-ui .host-title-block>b{font-size:14px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.host-live-ui .host-title-block small{display:flex!important;align-items:center!important;gap:4px!important;font-size:10px!important;color:#ead8f4!important;white-space:nowrap!important}
+.host-live-ui .host-viewer-mini{font-size:10px!important;color:#ffc2e0!important}
+.host-live-ui .host-copy-user{padding:0 3px!important;border:0!important;background:transparent!important;color:#fff!important;font-size:14px!important}
+.host-live-ui .host-live-badge{flex:0 0 auto!important;padding:7px 9px!important;border-radius:22px!important;background:#270b27!important;border:1px solid #ff2495!important;box-shadow:0 0 12px #ff168955!important;font-size:11px!important;font-weight:800!important;white-space:nowrap!important}
+.host-live-ui .host-style,.host-live-ui .host-more-top,.host-live-ui .host-exit{flex:0 0 34px!important;width:34px!important;height:34px!important;display:grid!important;place-items:center!important;border-radius:50%!important;border:1px solid #75427e!important;background:#170c25!important;color:#fff!important;font-size:17px!important;padding:0!important}
+.host-live-ui .host-exit{font-size:24px!important;border-color:transparent!important;background:transparent!important}
+.host-live-ui .host-room-strip{position:absolute!important;top:86px!important;left:10px!important;right:10px!important;z-index:7!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:7px!important;flex-wrap:nowrap!important}
+.host-live-ui .host-room-strip>*{padding:7px 10px!important;border:1px solid #62406d!important;border-radius:22px!important;background:#130b20eF!important;color:#fff!important;font-size:11px!important;white-space:nowrap!important}
+.host-live-ui .host-live-status{position:absolute!important;top:128px!important;left:10px!important;right:10px!important;z-index:7!important;margin:0!important;padding:9px 12px!important;border-radius:22px!important;background:#150c21eF!important;color:#ffc2de!important;font-size:11px!important}
+.host-live-ui .host-feature-bar[hidden],.host-live-ui .host-gift-panel[hidden]{display:none!important}
+.host-live-ui .host-feature-bar:not([hidden]){position:absolute!important;left:8px!important;right:8px!important;bottom:75px!important;z-index:20!important;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:8px!important;padding:16px 10px!important;border:1px solid #553064!important;border-radius:22px!important;background:linear-gradient(150deg,#160d28f8,#080611fa)!important;box-shadow:0 0 30px #000b!important}
+.host-live-ui .host-feature-bar button{min-width:0!important;padding:12px 4px!important;border:1px solid #63466e!important;border-radius:16px!important;background:#160d25!important;color:#fff!important;font-size:11px!important}
+.host-live-ui .host-viewer-list{position:absolute!important;top:28%!important;right:8px!important;z-index:6!important;width:135px!important;padding:9px!important;border:1px solid #78376f!important;border-radius:17px!important;background:#120a20d9!important;font-size:11px!important}
+.host-live-ui .host-viewer-empty{font-size:10px!important}
+.host-live-ui .host-chat-overlay{position:absolute!important;left:10px!important;right:66px!important;bottom:74px!important;z-index:5!important;display:flex!important;flex-direction:column!important;gap:6px!important;margin:0!important;pointer-events:none!important}
+.host-live-ui .host-chat-message{max-width:100%!important;padding:8px 10px!important;border-radius:17px!important;background:#140b21c9!important;color:#fff!important;font-size:11px!important}
+.host-live-ui .host-hearts{position:absolute!important;right:13px!important;bottom:145px!important;z-index:6!important;color:#ff299b!important;filter:drop-shadow(0 0 8px #ff168c)!important}
+.host-live-ui .host-live-bottom{position:absolute!important;left:8px!important;right:8px!important;bottom:8px!important;z-index:15!important;display:flex!important;align-items:center!important;gap:6px!important;margin:0!important;padding:0!important;background:transparent!important}
+.host-live-ui .host-more-bottom,.host-live-ui .host-mic-toggle,.host-live-ui .host-share,.host-live-ui .host-gift{flex:0 0 40px!important;width:40px!important;height:44px!important;display:flex!important;align-items:center!important;justify-content:center!important;border:1px solid #a83b93!important;border-radius:22px!important;background:#170b25ed!important;color:#fff!important;font-size:17px!important;padding:0!important}
+.host-live-ui .host-comment-form{flex:1 1 auto!important;min-width:0!important;display:flex!important;align-items:center!important;gap:4px!important;padding:4px 5px 4px 10px!important;border:1px solid #74517d!important;border-radius:28px!important;background:#130b21ef!important}
+.host-live-ui .host-comment-form input{flex:1!important;min-width:0!important;width:20px!important;padding:8px 0!important;background:transparent!important;border:0!important;color:#fff!important;font-size:11px!important}
+.host-live-ui .host-comment-form button{flex:0 0 30px!important;width:30px!important;height:30px!important;border:0!important;border-radius:50%!important;background:#f0188c!important;color:#fff!important;font-size:17px!important}
+.host-live-ui .host-gift{flex:0 0 42px!important;width:42px!important;height:44px!important;flex-direction:column!important;gap:0!important;border-radius:22px!important;font-size:20px!important}
+.host-live-ui .host-gift small{font-size:8px!important}
+.host-live-ui .host-gift-panel:not([hidden]){position:absolute!important;left:8px!important;right:8px!important;bottom:64px!important;z-index:25!important;max-height:48%!important;overflow:auto!important;padding:14px!important;border:1px solid #724078!important;border-radius:22px!important;background:#10091ef8!important;color:#fff!important}
+.host-live-ui .host-gift-coins{padding:10px 0!important;color:#ffc2df!important}
+@media(max-width:420px){
+ .host-live-ui{height:calc(100dvh - 118px)!important;min-height:540px!important}
+ .host-live-ui .host-live-top{left:5px!important;right:5px!important;gap:4px!important;padding:6px!important}
+ .host-live-ui .host-avatar{width:38px!important;height:38px!important;flex-basis:38px!important;font-size:17px!important}
+ .host-live-ui .host-title-block>b{font-size:12px!important}
+ .host-live-ui .host-title-block small{font-size:9px!important}
+ .host-live-ui .host-live-badge{padding:6px!important;font-size:9px!important}
+ .host-live-ui .host-style,.host-live-ui .host-more-top,.host-live-ui .host-exit{flex-basis:29px!important;width:29px!important;height:29px!important}
+ .host-live-ui .host-room-strip{top:80px!important;left:7px!important;right:7px!important}
+ .host-live-ui .host-live-status{top:119px!important;left:7px!important;right:7px!important}
+ .host-live-ui .host-more-bottom,.host-live-ui .host-mic-toggle,.host-live-ui .host-share{flex-basis:34px!important;width:34px!important;height:40px!important;font-size:14px!important}
+ .host-live-ui .host-gift{flex-basis:37px!important;width:37px!important;height:40px!important;font-size:18px!important}
+ .host-live-ui .host-comment-form{padding-left:8px!important}
+ .host-live-ui .host-comment-form input{font-size:10px!important}
+ .host-live-ui .host-feature-bar:not([hidden]){grid-template-columns:repeat(4,minmax(0,1fr))!important;bottom:65px!important;gap:5px!important;padding:12px 7px!important}
+}
