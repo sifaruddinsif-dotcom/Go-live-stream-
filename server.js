@@ -153,6 +153,29 @@ async function initDb() {
     );
     ALTER TABLE app_task_settings ADD COLUMN IF NOT EXISTS daily_reward_min INTEGER NOT NULL DEFAULT 50;
     ALTER TABLE app_task_settings ADD COLUMN IF NOT EXISTS daily_reward_max INTEGER NOT NULL DEFAULT 500;
+    
+    CREATE TABLE IF NOT EXISTS agency_hosts (
+      id BIGSERIAL PRIMARY KEY,
+      agency_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      host_user_id BIGINT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+      status VARCHAR(16) NOT NULL DEFAULT 'active' CHECK(status IN ('active','inactive')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CHECK(agency_user_id <> host_user_id)
+    );
+    CREATE INDEX IF NOT EXISTS agency_hosts_agency_idx ON agency_hosts(agency_user_id,status);
+    CREATE TABLE IF NOT EXISTS agency_commissions (
+      id BIGSERIAL PRIMARY KEY,
+      agency_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      host_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      commission_type VARCHAR(16) NOT NULL CHECK(commission_type IN ('gift','call','withdrawal')),
+      source_amount NUMERIC(16,4) NOT NULL DEFAULT 0,
+      commission_amount NUMERIC(16,4) NOT NULL DEFAULT 0,
+      unit VARCHAR(8) NOT NULL DEFAULT 'coins',
+      rate_percent NUMERIC(6,3) NOT NULL,
+      reference_key VARCHAR(120) NOT NULL UNIQUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS agency_commissions_agency_date_idx ON agency_commissions(agency_user_id,created_at DESC);
     CREATE TABLE IF NOT EXISTS agency_applications (
       id BIGSERIAL PRIMARY KEY,
       user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -327,6 +350,11 @@ app.post("/api/gifts/send", auth, async (req,res) => {
     await client.query("UPDATE wallet_accounts SET balance=balance-$1,updated_at=NOW() WHERE user_id=$2",[gift.coins,req.user.id]);
     await client.query("INSERT INTO diamond_accounts(user_id,balance) VALUES($1,$2) ON CONFLICT(user_id) DO UPDATE SET balance=diamond_accounts.balance+EXCLUDED.balance,updated_at=NOW()",[receiverId,hostCoins]);
     const tx=await client.query("INSERT INTO live_gifts(room_id,sender_id,receiver_id,gift_key,coins) VALUES($1,$2,$3,$4,$5) RETURNING id,room_id,gift_key,coins,created_at",[roomId,req.user.id,receiverId,giftKey,gift.coins]);
+    const agency=await client.query("SELECT agency_user_id FROM agency_hosts WHERE host_user_id=$1 AND status='active'",[receiverId]);
+    if(agency.rowCount){
+      const commission=Math.floor(gift.coins*0.03);
+      if(commission>0)await client.query("INSERT INTO agency_commissions(agency_user_id,host_user_id,commission_type,source_amount,commission_amount,unit,rate_percent,reference_key) VALUES($1,$2,'gift',$3,$4,'coins',3,$5) ON CONFLICT(reference_key) DO NOTHING",[agency.rows[0].agency_user_id,receiverId,gift.coins,commission,"gift:"+tx.rows[0].id]);
+    }
     await client.query("INSERT INTO wallet_transactions(user_id,amount,kind,reference) VALUES($1,$2,'gift_sent',$3),($4,$5,'gift_received',$3)",[req.user.id,-gift.coins,String(tx.rows[0].id),receiverId,hostCoins]);
     const balances=await client.query("SELECT balance FROM wallet_accounts WHERE user_id=$1",[req.user.id]);
     await client.query("COMMIT");
@@ -535,6 +563,11 @@ app.post("/api/calls/:id/bill-minute", auth, async (req,res) => {
     await client.query("UPDATE wallet_accounts SET balance=balance-$1,updated_at=NOW() WHERE user_id=$2",[CALL_RATE_COINS_PER_MINUTE,req.user.id]);
     await client.query("INSERT INTO diamond_accounts(user_id,balance) VALUES($1,$2) ON CONFLICT(user_id) DO UPDATE SET balance=diamond_accounts.balance+EXCLUDED.balance,updated_at=NOW()",[row.callee_id,hostCoins]);
     await client.query("UPDATE call_requests SET billed_minutes=$1,updated_at=NOW() WHERE id=$2",[nextMinute,row.id]);
+    const agency=await client.query("SELECT agency_user_id FROM agency_hosts WHERE host_user_id=$1 AND status='active'",[row.callee_id]);
+    if(agency.rowCount){
+      const callCoins=Math.floor(CALL_RATE_COINS_PER_MINUTE*0.01);
+      if(callCoins>0)await client.query("INSERT INTO agency_commissions(agency_user_id,host_user_id,commission_type,source_amount,commission_amount,unit,rate_percent,reference_key) VALUES($1,$2,'call',$3,$4,'coins',1,$5) ON CONFLICT(reference_key) DO NOTHING",[agency.rows[0].agency_user_id,row.callee_id,CALL_RATE_COINS_PER_MINUTE,callCoins,"call:"+row.id+":minute:"+nextMinute+":agency"]);
+    }
     const ref="call:"+row.id+":minute:"+nextMinute;
     await client.query("INSERT INTO wallet_transactions(user_id,amount,kind,reference) VALUES($1,$2,'call_charge',$3),($4,$5,'call_earning',$3)",[req.user.id,-CALL_RATE_COINS_PER_MINUTE,ref,row.callee_id,hostCoins]);
     const bal=await client.query("SELECT balance FROM wallet_accounts WHERE user_id=$1",[req.user.id]);
@@ -577,6 +610,14 @@ app.post("/api/withdrawals", auth, withdrawalSubmitLimiter, async (req,res) => {
     const inr=Math.round(usd*USD_INR_RATE*100)/100;
     await client.query("UPDATE diamond_accounts SET balance=balance-$1,updated_at=NOW() WHERE user_id=$2",[diamonds,req.user.id]);
     const w=await client.query("INSERT INTO withdrawal_requests(user_id,diamonds,usd_amount,usd_inr_rate,inr_amount,payout_details) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,diamonds,usd_amount,usd_inr_rate,inr_amount,status,created_at",[req.user.id,diamonds,usd,USD_INR_RATE,inr,payoutDetails]);
+    const agency=await client.query("SELECT agency_user_id FROM agency_hosts WHERE host_user_id=$1 AND status='active'",[req.user.id]);
+    if(agency.rowCount){
+      const monthly=await client.query("SELECT COALESCE(SUM(usd_amount),0) AS total FROM withdrawal_requests WHERE user_id=$1 AND status IN ('pending','approved','paid') AND created_at>=date_trunc('month',NOW())",[req.user.id]);
+      const monthTotal=Number(monthly.rows[0].total);
+      const rate=monthTotal>=10000?15:monthTotal>=5000?10:monthTotal>=500?7:monthTotal>=100?3:0;
+      const commission=Math.round(usd*rate)/100;
+      if(rate>0&&commission>0)await client.query("INSERT INTO agency_commissions(agency_user_id,host_user_id,commission_type,source_amount,commission_amount,unit,rate_percent,reference_key) VALUES($1,$2,'withdrawal',$3,$4,'USD',$5,$6) ON CONFLICT(reference_key) DO NOTHING",[agency.rows[0].agency_user_id,req.user.id,usd,commission,rate,"withdrawal:"+w.rows[0].id+":agency"]);
+    }
     await client.query("COMMIT");
     res.status(201).json({withdrawal:w.rows[0],notice:"Withdrawal request submitted for manual review. Payout is not automatic yet."});
   } catch(e){await client.query("ROLLBACK").catch(()=>{});res.status(500).json({error:"Could not submit withdrawal request."});}
@@ -633,6 +674,34 @@ app.patch("/api/admin/task-settings",auth,requireAdmin,async(req,res)=>{
   if(typeof b.female_only!=="boolean"||typeof b.enabled!=="boolean"||!Number.isFinite(hours)||hours<=0||hours>168||!Number.isFinite(reward)||reward<0||reward>100000||!Number.isInteger(days)||days<1||days>365||!Number.isInteger(dailyMin)||dailyMin<50||dailyMin>5000||!Number.isInteger(dailyMax)||dailyMax<dailyMin||dailyMax>5000) return res.status(400).json({error:"Invalid settings. Daily reward must be 50–5000 coins and max must be at least min."});
   try { const q=await pool.query("UPDATE app_task_settings SET female_only=$1,live_hours=$2,reward_usd=$3,duration_days=$4,enabled=$5,daily_reward_min=$7,daily_reward_max=$8,updated_at=NOW(),updated_by=$6 WHERE id=1 RETURNING female_only,live_hours,reward_usd,duration_days,enabled,daily_reward_min,daily_reward_max,updated_at",[b.female_only,hours,reward,days,b.enabled,req.user.id,dailyMin,dailyMax]); res.json({notice:"Task settings saved to database.",settings:q.rows[0]}); }
   catch(err) { console.error("admin task settings save failed",err); res.status(500).json({error:"Could not save task settings."}); }
+});
+
+app.get("/api/agency/dashboard",auth,async(req,res)=>{
+  try{
+    const me=await pool.query("SELECT is_agency,agency_id FROM users WHERE id=$1",[req.user.id]);
+    if(!me.rowCount||!me.rows[0].is_agency)return res.status(403).json({error:"Agency approval is required."});
+    const hosts=await pool.query("SELECT h.id,h.status,h.created_at,u.id AS user_id,u.username,'GLS'||LPAD(u.id::text,8,'0') AS fun_live_id FROM agency_hosts h JOIN users u ON u.id=h.host_user_id WHERE h.agency_user_id=$1 ORDER BY h.created_at DESC",[req.user.id]);
+    const totals=await pool.query("SELECT commission_type,COALESCE(SUM(commission_amount),0) AS total,COUNT(*) AS entries FROM agency_commissions WHERE agency_user_id=$1 AND created_at>=date_trunc('month',NOW()) GROUP BY commission_type",[req.user.id]);
+    const commissions=await pool.query("SELECT c.id,c.commission_type,c.source_amount,c.commission_amount,c.unit,c.rate_percent,c.created_at,u.username,'GLS'||LPAD(u.id::text,8,'0') AS fun_live_id FROM agency_commissions c JOIN users u ON u.id=c.host_user_id WHERE c.agency_user_id=$1 ORDER BY c.created_at DESC LIMIT 100",[req.user.id]);
+    res.json({agency:{agencyId:me.rows[0].agency_id,status:"approved"},hosts:hosts.rows,totals:totals.rows,commissions:commissions.rows,rates:{giftPercent:3,callPercentPerMinute:1,withdrawal:[{minimumUsd:100,percent:3},{minimumUsd:500,percent:7},{minimumUsd:5000,percent:10},{minimumUsd:10000,percent:15}]}});
+  }catch(err){console.error("Agency dashboard failed",err);res.status(500).json({error:"Could not load agency dashboard."});}
+});
+app.post("/api/agency/hosts",auth,async(req,res)=>{
+  const raw=String(req.body?.funLiveId||"").trim().toUpperCase();
+  const match=raw.match(/^(?:GLS)?(\d{1,12})$/);
+  if(!match)return res.status(400).json({error:"Enter a valid FUN LIVE ID, for example GLS00000012."});
+  const hostId=Number(match[1].replace(/^0+(?=\d)/,""));
+  if(!Number.isSafeInteger(hostId)||hostId<1||hostId===Number(req.user.id))return res.status(400).json({error:"Enter another user's valid FUN LIVE ID."});
+  try{
+    const agency=await pool.query("SELECT is_agency FROM users WHERE id=$1",[req.user.id]);
+    if(!agency.rowCount||!agency.rows[0].is_agency)return res.status(403).json({error:"Agency approval is required."});
+    const host=await pool.query("SELECT id,username,is_agency FROM users WHERE id=$1",[hostId]);
+    if(!host.rowCount)return res.status(404).json({error:"FUN LIVE user was not found."});
+    if(host.rows[0].is_agency)return res.status(400).json({error:"An agency account cannot be added as a host."});
+    const added=await pool.query("INSERT INTO agency_hosts(agency_user_id,host_user_id) VALUES($1,$2) ON CONFLICT(host_user_id) DO NOTHING RETURNING id,created_at",[req.user.id,hostId]);
+    if(!added.rowCount)return res.status(409).json({error:"This host is already connected to an agency."});
+    res.status(201).json({host:{id:added.rows[0].id,userId:hostId,username:host.rows[0].username,funLiveId:"GLS"+String(hostId).padStart(8,"0"),status:"active"},message:"Host added to your agency."});
+  }catch(err){console.error("Agency add host failed",err);res.status(500).json({error:"Could not add host."});}
 });
 app.post("/api/agency/applications",auth,rateLimit({windowMs:60*60*1000,limit:3,standardHeaders:true,legacyHeaders:false}),async(req,res)=>{
   const fullName=String(req.body?.fullName||"").trim();
