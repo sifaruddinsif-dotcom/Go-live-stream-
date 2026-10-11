@@ -1198,9 +1198,16 @@ $('logout').onclick=async()=>{await leaveMedia();token='';sessionStorage.removeI
 $('refresh').onclick=()=>action(async()=>{
  const r=await call('/api/rooms');const lives=r.rooms.filter(x=>x.kind==='live');$('room-list').innerHTML=lives.length?lives.map(x=>'<div class="row"><span>'+safe(x.title)+'</span><small>Live #'+safe(x.id)+' · '+safe(x.host)+'</small><button class="primary" data-join="'+safe(x.id)+'">Watch Live</button></div>').join(''):'<p>No live streams right now.</p>';status('Live streams refreshed.');
 });
-$('create').onclick=()=>action(async()=>{
- if(!token)throw Error('Guest sign-in abhi ready nahi hai. Refresh karke try karo.');const title=$('room-title').value.trim();if(!title)throw Error('Live title likho.');status('Starting live stream…');const r=await call('/api/rooms','POST',{title,kind:'live'});$('room-id').value=r.room.id;$('room-id-label').textContent='Live room #'+r.room.id+' — share this number with viewers.';status('✅ Live room created. Connecting camera and microphone…');await joinMedia(r.room.id);await loadRooms();
-});
+$('create').onclick=async()=>{
+ const btn=$('create');const original=btn.textContent;btn.disabled=true;btn.textContent='Connecting…';
+ try{
+  if(!token){status('Signing you in securely…');const guest=await call('/api/auth/guest','POST',{});if(!guest?.token)throw Error('Guest sign-in failed.');token=guest.token;sessionStorage.setItem('golive_token',token);localStorage.setItem('golive_token',token);if(guest.user)accountLabel(guest.user);}
+  const title=$('room-title')?.value.trim();if(!title)throw Error('Pehle live title likho.');
+  status('Creating your live room…');const result=await call('/api/rooms','POST',{title,kind:'live'});if(!result?.room?.id)throw Error('Room create nahi hua. Please retry.');
+  $('room-id').value=result.room.id;$('room-id-label').textContent='Live room #'+result.room.id+' — share this number with viewers.';
+  status('Room created. Connecting camera and microphone…');await joinMedia(result.room.id);await loadRooms();
+ }catch(e){status('❌ Live start nahi hua: '+(e.message||'Unknown error')+'. Internet aur camera permission check karo.');}finally{btn.disabled=false;btn.textContent=original;}
+};
 async function loadRooms(){const r=await call('/api/rooms');$('room-list').innerHTML=r.rooms.length?r.rooms.map(x=>'<div class="row"><span>'+safe(x.title)+' ('+safe(x.kind)+')</span><small>Room #'+safe(x.id)+' · '+safe(x.host)+'</small><button class="primary" data-join="'+safe(x.id)+'">Join media</button></div>').join(''):'<p>No rooms yet.</p>'}
 $('history').onclick=()=>action(async()=>{
  const id=$('room-id').value.trim();if(!/^\d+$/.test(id))throw Error('Enter a numeric room ID.');
