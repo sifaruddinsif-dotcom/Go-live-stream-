@@ -527,6 +527,41 @@ app.get("/api/admin/hosts",auth,requireAdmin,async(_req,res)=>{
   try{const r=await pool.query("SELECT u.id,u.username,COUNT(DISTINCT rm.id)::int AS live_rooms,COALESCE(d.balance,0)::bigint AS diamonds FROM users u LEFT JOIN rooms rm ON rm.owner_id=u.id AND rm.kind='live' LEFT JOIN diamond_accounts d ON d.user_id=u.id GROUP BY u.id,u.username,d.balance ORDER BY live_rooms DESC,u.created_at DESC LIMIT 500");res.json({hosts:r.rows});}
   catch{res.status(500).json({error:"Could not load host candidates."});}
 });
+app.get("/api/admin/coin-balances",auth,requireAdmin,async(_req,res)=>{
+  try{
+    const r=await pool.query("SELECT u.id,u.username,COALESCE(w.balance,0)::bigint AS coins FROM users u LEFT JOIN wallet_accounts w ON w.user_id=u.id ORDER BY u.id DESC LIMIT 500");
+    res.json({balances:r.rows});
+  }catch{res.status(500).json({error:"Could not load coin balances."});}
+});
+app.post("/api/admin/coin-transfer",auth,requireAdmin,async(req,res)=>{
+  const fromId=String(req.body?.fromUserId||"").trim();
+  const toId=String(req.body?.toUserId||"").trim();
+  const coins=Number(req.body?.coins);
+  const reason=String(req.body?.reason||"Admin transfer").trim().slice(0,180);
+  if(!/^\d+$/.test(fromId)||!/^\d+$/.test(toId)) return res.status(400).json({error:"Enter valid sender and receiver user IDs."});
+  if(fromId===toId) return res.status(400).json({error:"Sender and receiver must be different users."});
+  if(!Number.isSafeInteger(coins)||coins<1||coins>1000000000) return res.status(400).json({error:"Enter a coin amount from 1 to 1,000,000,000."});
+  const client=await pool.connect();
+  try{
+    await client.query("BEGIN");
+    const users=await client.query("SELECT id,username FROM users WHERE id=ANY($1::bigint[]) ORDER BY id",[ [fromId,toId] ]);
+    if(users.rowCount!==2){await client.query("ROLLBACK");return res.status(404).json({error:"Sender or receiver user was not found."});}
+    await client.query("INSERT INTO wallet_accounts(user_id,balance) VALUES($1,0),($2,0) ON CONFLICT(user_id) DO NOTHING",[fromId,toId]);
+    const accounts=await client.query("SELECT user_id,balance FROM wallet_accounts WHERE user_id=ANY($1::bigint[]) ORDER BY user_id FOR UPDATE",[[fromId,toId]]);
+    const sender=accounts.rows.find(x=>String(x.user_id)===fromId);
+    const receiver=accounts.rows.find(x=>String(x.user_id)===toId);
+    if(!sender||!receiver){await client.query("ROLLBACK");return res.status(500).json({error:"Could not load sender and receiver wallets."});}
+    if(Number(sender.balance)<coins){await client.query("ROLLBACK");return res.status(409).json({error:"Sender does not have enough coins.",available:Number(sender.balance)});}
+    await client.query("UPDATE wallet_accounts SET balance=balance-$1,updated_at=NOW() WHERE user_id=$2",[coins,fromId]);
+    await client.query("UPDATE wallet_accounts SET balance=balance+$1,updated_at=NOW() WHERE user_id=$2",[coins,toId]);
+    const ref="admin:"+String(req.user.id)+";reason:"+reason;
+    await client.query("INSERT INTO wallet_transactions(user_id,amount,kind,reference) VALUES($1,$2,'admin_transfer_out',$3),($4,$5,'admin_transfer_in',$3)",[fromId,-coins,ref,toId,coins]);
+    const updated=await client.query("SELECT u.id,u.username,w.balance FROM users u JOIN wallet_accounts w ON w.user_id=u.id WHERE u.id=ANY($1::bigint[]) ORDER BY u.id",[[fromId,toId]]);
+    await client.query("COMMIT");
+    res.json({notice:"Coin transfer completed.",coins,from:updated.rows.find(x=>String(x.id)===fromId),to:updated.rows.find(x=>String(x.id)===toId)});
+  }catch(e){await client.query("ROLLBACK").catch(()=>{});res.status(500).json({error:"Coin transfer failed. No coins were transferred."});}
+  finally{client.release();}
+});
 app.get("/api/admin/payments",auth,requireAdmin,async(_req,res)=>{
   try{const r=await pool.query("SELECT p.order_id,p.user_id,u.username,p.amount_paise,p.coins,p.status,p.created_at,p.paid_at FROM payment_orders p JOIN users u ON u.id=p.user_id ORDER BY p.created_at DESC LIMIT 300");res.json({payments:r.rows});}
   catch{res.status(500).json({error:"Could not load payments."});}
