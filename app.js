@@ -29,7 +29,8 @@ else if(p==='Customer Support')html='<button class="back-link" data-page="More">
 else if(p==='Settings')html='<button class="back-link" data-page="More">‹ Back</button><h1 class="title">⚙️ Settings</h1><div class="feature-card"><h3>App preferences</h3><button class="setting-toggle" data-setting="notifications">Notifications <b id="notifications-label">ON</b></button><button class="setting-toggle" data-setting="sound">Sound effects <b id="sound-label">ON</b></button><button class="setting-toggle" data-setting="safeMode">Safe mode <b id="safeMode-label">ON</b></button><button class="secondary-wide" data-action="clear-local">Clear local demo preferences</button><p class="note">Preferences are saved on this device only.</p></div>';
 else html='<h1 class="title">More</h1>'+rows(['🎯 Task Center','🏆 Level System','🛡️ Guard System','👨‍👩‍👧 Family','💌 Invite Friends','🌟 Official Agency','🎧 Customer Support','⚙️ Settings'])+'<p class="note">FUN LIVE · Live • Connect • Enjoy</p>';
 app.innerHTML=html;
-if(p==='Task Center') loadDailyRewardStatus();\nif(p==='Messages') loadDirectInbox();
+if(p==='Task Center') loadDailyRewardStatus();
+if(p==='Messages') loadDirectInbox();
 document.querySelectorAll('nav [data-page]').forEach(b=>b.style.color=b.dataset.page===p?'#ff60ad':'#aaa8c1');window.scrollTo(0,0)}
 
 function dmApi(){return dailyApi()}
