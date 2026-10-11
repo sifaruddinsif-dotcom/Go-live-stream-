@@ -163,3 +163,41 @@ body:has(.host-live-ui) .room:has(#media-view) .controls button{
  .room:has(.host-live-ui){padding:0!important}
  .host-live-ui{border-radius:18px!important}
 }
+
+
+/* Approved live UI: top identity row, full camera stage, bottom comment + tools drawer. */
+.host-live-ui{height:calc(100dvh - 118px)!important;min-height:560px!important;background:#05040b!important}
+.host-live-ui .host-live-top{left:10px!important;right:10px!important;top:10px!important;display:flex!important;gap:8px!important;padding:9px!important}
+.host-live-ui .host-title-block{flex:1!important}
+.host-live-ui .host-share{font-size:12px!important;padding:9px!important;white-space:nowrap!important}
+.host-live-ui .host-more{flex:0 0 36px!important;width:36px!important;height:36px!important;border:1px solid #75407e!important;border-radius:50%!important;background:#180d25!important;color:#fff!important;font-size:16px!important;font-weight:900!important}
+.host-live-ui .host-room-strip{position:absolute!important;top:93px!important;left:10px!important;right:10px!important;display:flex!important;justify-content:flex-start!important;align-items:center!important;gap:6px!important;flex-wrap:nowrap!important}
+.host-live-ui .host-room-strip>*{padding:7px 9px!important;font-size:11px!important}
+.host-live-ui .host-room-strip>span:nth-child(2){margin-left:auto!important}
+.host-live-ui .host-live-status{top:137px!important;left:10px!important;right:10px!important}
+.host-live-ui .host-feature-bar[hidden]{display:none!important}
+.host-live-ui .host-feature-bar{
+ position:absolute!important;left:0!important;right:0!important;top:auto!important;bottom:0!important;
+ z-index:30!important;display:flex!important;flex-wrap:nowrap!important;gap:5px!important;
+ padding:18px 8px 28px!important;border-radius:24px 24px 0 0!important;
+ border:1px solid #573263!important;background:linear-gradient(180deg,#160d27f5,#080611fa)!important;
+ box-shadow:0 -12px 30px #0009!important;overflow-x:auto!important;
+}
+.host-live-ui .host-feature-bar button{flex:0 0 auto!important;min-width:70px!important;padding:12px 10px!important;font-size:12px!important}
+.host-live-ui .host-video{z-index:0!important}
+.host-live-ui .host-viewer-list{top:44%!important;right:10px!important}
+.host-live-ui .host-chat-overlay{left:10px!important;right:76px!important;bottom:82px!important}
+.host-live-ui .host-hearts{right:12px!important;bottom:115px!important}
+.host-live-ui .host-live-bottom{left:10px!important;right:10px!important;bottom:10px!important;z-index:8!important}
+.host-live-ui .host-gift{order:5!important;flex:0 0 54px!important;width:54px!important;height:54px!important}
+.host-live-ui .host-comment-form{order:1!important;flex:1!important}
+@media(max-width:420px){
+ .host-live-ui{height:calc(100dvh - 112px)!important;min-height:540px!important}
+ .host-live-ui .host-live-top{left:8px!important;right:8px!important;top:8px!important}
+ .host-live-ui .host-room-strip{left:8px!important;right:8px!important;top:89px!important}
+ .host-live-ui .host-live-status{top:132px!important;left:8px!important;right:8px!important}
+ .host-live-ui .host-chat-overlay{left:8px!important;right:65px!important;bottom:76px!important}
+ .host-live-ui .host-live-bottom{left:8px!important;right:8px!important;bottom:8px!important}
+ .host-live-ui .host-feature-bar{padding:16px 7px 26px!important}
+ .host-live-ui .host-feature-bar button{min-width:65px!important;padding:10px 8px!important;font-size:11px!important}
+}
