@@ -43,6 +43,8 @@ async function initDb() {
     );
     ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(16) NOT NULL DEFAULT 'unspecified';
     ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS is_agency BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS agency_id VARCHAR(32);
     CREATE TABLE IF NOT EXISTS rooms (
       id BIGSERIAL PRIMARY KEY, owner_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
       title VARCHAR(100) NOT NULL, kind VARCHAR(16) NOT NULL CHECK(kind IN ('voice','live')),
@@ -162,10 +164,12 @@ async function initDb() {
       coin_unit VARCHAR(8) NOT NULL,
       additional_info VARCHAR(1000) NOT NULL DEFAULT '',
       status VARCHAR(16) NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+      agency_id VARCHAR(32),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       reviewed_at TIMESTAMPTZ,
       reviewed_by BIGINT REFERENCES users(id) ON DELETE SET NULL
     );
+    ALTER TABLE agency_applications ADD COLUMN IF NOT EXISTS agency_id VARCHAR(32);
     CREATE INDEX IF NOT EXISTS agency_applications_status_created_idx ON agency_applications(status,created_at DESC);
     CREATE TABLE IF NOT EXISTS daily_reward_claims (
       id BIGSERIAL PRIMARY KEY,
@@ -184,7 +188,7 @@ async function auth(req, res, next) {
   if (!raw.startsWith("Bearer ")) return res.status(401).json({ error: "Sign in required." });
   try {
     const payload = jwt.verify(raw.slice(7), JWT_SECRET, { issuer: "go-live-stream" });
-    const result = await pool.query("SELECT id, username, email, bio, gender, is_blocked, created_at FROM users WHERE id=$1", [payload.sub]);
+    const result = await pool.query("SELECT id, username, email, bio, gender, is_blocked, is_agency, agency_id, created_at FROM users WHERE id=$1", [payload.sub]);
     if (!result.rowCount) return res.status(401).json({ error: "Account not found." });
     if (result.rows[0].is_blocked) return res.status(403).json({ error: "This account has been blocked. Contact FUN LIVE support." });
     req.user = result.rows[0]; next();
@@ -649,7 +653,7 @@ app.get("/api/admin/agency-applications",auth,requireAdmin,async(req,res)=>{
   const status=String(req.query.status||"pending");
   if(!["pending","approved","rejected","all"].includes(status))return res.status(400).json({error:"Invalid status filter."});
   try{
-    const r=await pool.query("SELECT a.id,a.user_id,u.username,a.full_name,a.fun_live_id,a.monthly_earning,a.earning_currency,a.coin_requirement,a.coin_unit,a.additional_info,a.status,a.created_at,a.reviewed_at FROM agency_applications a JOIN users u ON u.id=a.user_id "+(status==="all"?"":"WHERE a.status=$1 ")+"ORDER BY a.created_at DESC LIMIT 200",status==="all"?[]:[status]);
+    const r=await pool.query("SELECT a.id,a.user_id,u.username,a.full_name,a.fun_live_id,a.monthly_earning,a.earning_currency,a.coin_requirement,a.coin_unit,a.additional_info,a.status,a.agency_id,a.created_at,a.reviewed_at FROM agency_applications a JOIN users u ON u.id=a.user_id "+(status==="all"?"":"WHERE a.status=$1 ")+"ORDER BY a.created_at DESC LIMIT 200",status==="all"?[]:[status]);
     res.json({applications:r.rows});
   }catch(err){console.error("Agency application list failed",err);res.status(500).json({error:"Could not load agency applications."});}
 });
@@ -657,11 +661,22 @@ app.patch("/api/admin/agency-applications/:id",auth,requireAdmin,async(req,res)=
   const id=String(req.params.id||"");
   const status=String(req.body?.status||"");
   if(!/^\d+$/.test(id)||!["approved","rejected"].includes(status))return res.status(400).json({error:"Choose approve or reject for a valid application."});
+  const client=await pool.connect();
   try{
-    const r=await pool.query("UPDATE agency_applications SET status=$1,reviewed_at=NOW(),reviewed_by=$2 WHERE id=$3 AND status='pending' RETURNING id,status,reviewed_at",[status,req.user.id,id]);
-    if(!r.rowCount)return res.status(404).json({error:"Pending application not found. It may already have been reviewed."});
-    res.json({application:r.rows[0],notice:"Agency application "+status+"."});
-  }catch(err){console.error("Agency application review failed",err);res.status(500).json({error:"Could not update agency application."});}
+    await client.query("BEGIN");
+    const found=await client.query("SELECT id,user_id,fun_live_id,status FROM agency_applications WHERE id=$1 FOR UPDATE",[id]);
+    if(!found.rowCount||found.rows[0].status!=="pending"){await client.query("ROLLBACK");return res.status(404).json({error:"Pending application not found. It may already have been reviewed."});}
+    const app=found.rows[0];
+    let agencyId=null;
+    if(status==="approved"){
+      agencyId="AGY"+String(app.id).padStart(8,"0");
+      await client.query("UPDATE users SET is_agency=TRUE,agency_id=$1 WHERE id=$2",[agencyId,app.user_id]);
+    }
+    const r=await client.query("UPDATE agency_applications SET status=$1,agency_id=$2,reviewed_at=NOW(),reviewed_by=$3 WHERE id=$4 RETURNING id,status,agency_id,reviewed_at",[status,agencyId,req.user.id,id]);
+    await client.query("COMMIT");
+    res.json({application:r.rows[0],notice:status==="approved"?"Agency accepted. Agency ID "+agencyId+" assigned.":"Agency application rejected."});
+  }catch(err){await client.query("ROLLBACK").catch(()=>{});console.error("Agency application review failed",err);res.status(500).json({error:"Could not update agency application."});}
+  finally{client.release();}
 });
 app.get("/api/admin/overview",auth,requireAdmin,async(_req,res)=>{
   try{
