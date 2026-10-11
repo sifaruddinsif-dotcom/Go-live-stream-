@@ -151,6 +151,22 @@ async function initDb() {
     );
     ALTER TABLE app_task_settings ADD COLUMN IF NOT EXISTS daily_reward_min INTEGER NOT NULL DEFAULT 50;
     ALTER TABLE app_task_settings ADD COLUMN IF NOT EXISTS daily_reward_max INTEGER NOT NULL DEFAULT 500;
+    CREATE TABLE IF NOT EXISTS agency_applications (
+      id BIGSERIAL PRIMARY KEY,
+      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      full_name VARCHAR(100) NOT NULL,
+      fun_live_id VARCHAR(60) NOT NULL,
+      monthly_earning NUMERIC(14,2) NOT NULL CHECK(monthly_earning >= 0),
+      earning_currency VARCHAR(8) NOT NULL,
+      coin_requirement BIGINT NOT NULL CHECK(coin_requirement > 0),
+      coin_unit VARCHAR(8) NOT NULL,
+      additional_info VARCHAR(1000) NOT NULL DEFAULT '',
+      status VARCHAR(16) NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      reviewed_at TIMESTAMPTZ,
+      reviewed_by BIGINT REFERENCES users(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS agency_applications_status_created_idx ON agency_applications(status,created_at DESC);
     CREATE TABLE IF NOT EXISTS daily_reward_claims (
       id BIGSERIAL PRIMARY KEY,
       user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -613,6 +629,29 @@ app.patch("/api/admin/task-settings",auth,requireAdmin,async(req,res)=>{
   if(typeof b.female_only!=="boolean"||typeof b.enabled!=="boolean"||!Number.isFinite(hours)||hours<=0||hours>168||!Number.isFinite(reward)||reward<0||reward>100000||!Number.isInteger(days)||days<1||days>365||!Number.isInteger(dailyMin)||dailyMin<50||dailyMin>5000||!Number.isInteger(dailyMax)||dailyMax<dailyMin||dailyMax>5000) return res.status(400).json({error:"Invalid settings. Daily reward must be 50–5000 coins and max must be at least min."});
   try { const q=await pool.query("UPDATE app_task_settings SET female_only=$1,live_hours=$2,reward_usd=$3,duration_days=$4,enabled=$5,daily_reward_min=$7,daily_reward_max=$8,updated_at=NOW(),updated_by=$6 WHERE id=1 RETURNING female_only,live_hours,reward_usd,duration_days,enabled,daily_reward_min,daily_reward_max,updated_at",[b.female_only,hours,reward,days,b.enabled,req.user.id,dailyMin,dailyMax]); res.json({notice:"Task settings saved to database.",settings:q.rows[0]}); }
   catch(err) { console.error("admin task settings save failed",err); res.status(500).json({error:"Could not save task settings."}); }
+});
+app.post("/api/agency/applications",auth,rateLimit({windowMs:60*60*1000,limit:3,standardHeaders:true,legacyHeaders:false}),async(req,res)=>{
+  const fullName=String(req.body?.fullName||"").trim();
+  const funLiveId=String(req.body?.funLiveId||"").trim();
+  const monthlyEarning=Number(req.body?.monthlyEarning);
+  const earningCurrency=String(req.body?.earningCurrency||"");
+  const coinRequirement=Number(req.body?.coinRequirement);
+  const coinUnit=String(req.body?.coinUnit||"");
+  const additionalInfo=String(req.body?.additionalInfo||"").trim();
+  if(!fullName||fullName.length>100||!funLiveId||funLiveId.length>60||!Number.isFinite(monthlyEarning)||monthlyEarning<0||!["USD","INR","BDT","PKR","PHP"].includes(earningCurrency)||!Number.isSafeInteger(coinRequirement)||coinRequirement<1||coinRequirement>9000000000000||!["Coins","USD","INR"].includes(coinUnit)||additionalInfo.length>1000)
+    return res.status(400).json({error:"Please check all agency application fields."});
+  try{
+    const r=await pool.query("INSERT INTO agency_applications(user_id,full_name,fun_live_id,monthly_earning,earning_currency,coin_requirement,coin_unit,additional_info) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id,status,created_at",[req.user.id,fullName,funLiveId,monthlyEarning,earningCurrency,coinRequirement,coinUnit,additionalInfo]);
+    return res.status(201).json({application:{id:r.rows[0].id,status:r.rows[0].status,createdAt:r.rows[0].created_at},message:"Your agency application has been submitted for review."});
+  }catch(err){console.error("Agency application save failed",err);return res.status(500).json({error:"Could not save application. Please try again later."});}
+});
+app.get("/api/admin/agency-applications",auth,requireAdmin,async(req,res)=>{
+  const status=String(req.query.status||"pending");
+  if(!["pending","approved","rejected","all"].includes(status))return res.status(400).json({error:"Invalid status filter."});
+  try{
+    const r=await pool.query("SELECT a.id,a.user_id,u.username,a.full_name,a.fun_live_id,a.monthly_earning,a.earning_currency,a.coin_requirement,a.coin_unit,a.additional_info,a.status,a.created_at,a.reviewed_at FROM agency_applications a JOIN users u ON u.id=a.user_id "+(status==="all"?"":"WHERE a.status=$1 ")+"ORDER BY a.created_at DESC LIMIT 200",status==="all"?[]:[status]);
+    res.json({applications:r.rows});
+  }catch(err){console.error("Agency application list failed",err);res.status(500).json({error:"Could not load agency applications."});}
 });
 app.get("/api/admin/overview",auth,requireAdmin,async(_req,res)=>{
   try{
