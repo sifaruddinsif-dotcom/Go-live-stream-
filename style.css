@@ -283,3 +283,7 @@ body:has(.host-live-ui) .room:has(#media-view) .controls button{
 
 /* Keep room number off the approved host header; coins are shown inside Gift. */
 .host-live-ui .host-room-strip{display:none!important}
+
+
+/* Approved reference: hide the technical camera/microphone connection banner. */
+.host-live-ui #media-connection-status{display:none!important}
