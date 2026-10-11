@@ -422,3 +422,9 @@ body:has(.host-live-ui) .room:has(#media-view) .controls button{
 
 /* Use a native, easy-to-tap consent checkbox on mobile */
 .agency-consent{position:relative;cursor:pointer;align-items:flex-start}.agency-consent input[type=checkbox]{appearance:auto!important;-webkit-appearance:checkbox!important;display:block!important;opacity:1!important;position:static!important;pointer-events:auto!important;flex:0 0 24px;width:24px;height:24px;min-width:24px;margin:2px 0 0!important;padding:0;accent-color:#f229a3;cursor:pointer;transform:scale(1.12);transform-origin:top left}.agency-consent span{flex:1;cursor:pointer}
+
+/* Reliable agency consent checkbox: native input, no custom pseudo checkmark */
+.agency-consent{display:flex!important;align-items:flex-start!important;gap:12px!important;position:relative!important;cursor:pointer!important;touch-action:manipulation}
+.agency-consent input[type="checkbox"]{appearance:auto!important;-webkit-appearance:checkbox!important;display:block!important;position:relative!important;opacity:1!important;visibility:visible!important;pointer-events:auto!important;flex:0 0 28px!important;width:28px!important;height:28px!important;min-width:28px!important;margin:2px 0 0!important;padding:0!important;accent-color:#f229a3!important;transform:none!important;z-index:2!important}
+.agency-consent input[type="checkbox"]::after{content:none!important;display:none!important}
+.agency-consent span{display:block!important;flex:1!important;pointer-events:none!important}
