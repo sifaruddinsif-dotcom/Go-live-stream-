@@ -1,5 +1,6 @@
 const app=document.querySelector('#app');
-let page='Home';\nlet dmRefreshTimer=null;
+let page='Home';
+let dmRefreshTimer=null;
 let state={coins:12580,chat:{},following:[],user:{name:'Riya',bio:'✨ Live • Connect • Enjoy'},sentGifts:0};
 try{state={...state,...JSON.parse(localStorage.getItem('golive_state')||'{}')}}catch{}
 const pics=['https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80','https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=500&q=80','https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=500&q=80','https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=500&q=80','https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=500&q=80','https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=500&q=80'];
