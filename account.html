@@ -174,10 +174,18 @@ body:has(.private-call-ui) .controls{display:none!important}
   <div id="withdrawal-history"><p class="note">Your recent requests will appear here.</p></div>
 </div>
 <div class="room"><h2>👤 Profile Gender</h2><p class="note">Male profile can call female hosts. Female profile can receive paid private calls. Choose accurately.</p><select class="input" id="profile-gender"><option value="unspecified">Choose gender</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></select><button class="primary" id="save-gender">Save Profile Gender</button></div>\n<div class="room"><h2>🏆 Weekly Rank & 🪙 Coin Store</h2><p class="note">Weekly creator ranking and optional coin purchase.</p><button class="primary" id="open-rankings">🏆 Weekly Ranking</button><div id="weekly-rankings"></div><div class="live-tool-panel"><b>🪙 Buy FUN Coins</b><p class="note">Payments are available only after secure Razorpay credentials are configured.</p><div id="coin-store"><button class="primary" type="button" data-coin-package="9900">900 coins · ₹99</button><button class="primary" type="button" data-coin-package="49900">5,000 coins · ₹499</button><button class="primary" type="button" data-coin-package="99900">10,500 coins · ₹999</button><button class="primary" type="button" data-coin-package="499000">55,000 coins · ₹4,990</button></div><p class="note" id="coin-store-status">Coin purchases will show an error until Razorpay is configured.</p></div></div>
-<div class="room"><h2>🔴 FUN LIVE STREAM</h2><p class="note">Start a live video broadcast. Share the room number so viewers can join.</p>
-<input class="input" id="room-title" maxlength="100" placeholder="Live title (e.g. My Live)">
+<div class="room go-live-setup-room"><h2 class="setup-accessible-title">🔴 FUN LIVE STREAM</h2><p class="note setup-accessible-title">Start a live video broadcast. Share the room number so viewers can join.</p>
+<div class="go-live-setup" id="go-live-setup">
+ <header class="go-live-setup-header"><button type="button" class="setup-back" id="setup-back" aria-label="Back">‹</button><b>Go Live</b><span aria-hidden="true"></span></header>
+ <div class="setup-tabs"><button type="button" class="active" id="setup-video-tab">Video Live</button><button type="button" id="setup-call-tab">Video Call</button></div>
+ <div class="setup-camera-stage"><video id="setup-camera-preview" autoplay muted playsinline></video><div class="setup-camera-placeholder" id="setup-camera-placeholder"><span>📷</span><b>Camera preview</b><small>Tap Camera to enable preview</small></div>
+  <div class="setup-tools"><button type="button" id="setup-flip"><span>🔄</span>Flip</button><button type="button" id="setup-beauty"><span>✨</span>Beauty</button><button type="button" id="setup-filter"><span>◉</span>Filter</button><button type="button" id="setup-mic"><span>🎙️</span>Mic</button><button type="button" id="setup-camera"><span>📹</span>Camera</button></div>
+  <div class="setup-details"><label for="setup-title">Live Title<input id="setup-title" maxlength="100" placeholder="Say something interesting…"></label><div class="setup-selects"><label>Category<select id="setup-category"><option value="Chat">💬 Chat</option><option value="Music">🎵 Music</option><option value="Gaming">🎮 Gaming</option><option value="Lifestyle">🌸 Lifestyle</option><option value="Other">✨ Other</option></select></label><label>Quality<select id="setup-quality"><option value="720p">HD 720p</option><option value="480p">480p</option><option value="360p">360p</option></select></label></div><button type="button" id="setup-start-live"><span>◉</span> Start Live</button><p id="setup-status" aria-live="polite"></p></div>
+ </div>
+</div>
+<input class="input setup-legacy-title" id="room-title" maxlength="100" placeholder="Live title (e.g. My Live)">
 <input type="hidden" id="room-kind" value="live">
-<button class="primary" id="create">＋ Start Live</button>
+<button class="primary setup-legacy-create" id="create">＋ Start Live</button>
 <button class="primary" id="refresh">Find Live Streams</button><div id="room-list"></div>
 </div>
 <div class="room"><h2>💗 1-to-1 Video Call</h2><p class="note">Create a private call room and share its room number with the other person. Both people must join the same room.</p>
