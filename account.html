@@ -193,6 +193,45 @@ body:has(.private-call-ui) .controls{display:none!important}
 </div>
 </section>
 <section id="room-chat" style="display:none"><div class="room"><input id="room-id" type="hidden"><input id="message" type="hidden"><div id="messages" hidden></div><button class="primary" id="history" hidden>History</button><button class="primary" id="send" hidden>Send</button><button class="primary" id="logout">Log out</button></div></section>
-<script src="account.js?v=20261011-withdraw1"></script><script>
+<script src="account.js?v=20261011-authfix2"></script><script>
 (()=>{const lt=document.getElementById('login-tab'),rt=document.getElementById('register-tab'),login=document.getElementById('login'),register=document.getElementById('register'),forgot=document.getElementById('forgot'),line=document.getElementById('switchline');function mode(isReg){lt.classList.toggle('active',!isReg);rt.classList.toggle('active',isReg);login.hidden=isReg;register.hidden=!isReg;forgot.hidden=isReg;line.innerHTML=isReg?'Already have an account? <button type="button" id="login-now">Login</button>':'Don\'t have an account? <button type="button" id="create-now">Create now</button>';document.getElementById('create-now')?.addEventListener('click',()=>mode(true));document.getElementById('login-now')?.addEventListener('click',()=>mode(false));document.getElementById('password').autocomplete=isReg?'new-password':'current-password'}lt.onclick=()=>mode(false);rt.onclick=()=>mode(true);document.getElementById('create-now').onclick=()=>mode(true);forgot.onclick=e=>{e.preventDefault();document.getElementById('status').textContent='Password reset is not set up yet. Please contact support.'};document.querySelectorAll('[data-social]').forEach(b=>b.onclick=()=>{document.getElementById('status').textContent=b.dataset.social+' sign-in is not connected yet. Use email for now.'});function showRooms(){document.querySelector('.login-hero').style.display='none';document.querySelector('.login-panel').style.display='none';document.getElementById('rooms').style.display='block';document.getElementById('room-chat').style.display='block'}// Keep the login/register panel visible on page load; successful login/register reveals rooms below.document.addEventListener('click',e=>{if(e.target.closest('#login')||e.target.closest('#register'))setTimeout(()=>{if(sessionStorage.getItem('golive_token'))showRooms()},400)})})();
+</script><script>
+/* Reliable login/register controls fallback */
+(()=> {
+ const $=id=>document.getElementById(id);
+ const endpoint=localStorage.getItem('golive_api_endpoint')||'https://go-live-stream-api.onrender.com';
+ const statusBox=$('status');
+ const say=s=>{if(statusBox)statusBox.textContent=s;};
+ function mode(reg){
+   $('login-tab').classList.toggle('active',!reg);$('register-tab').classList.toggle('active',reg);
+   $('login').hidden=reg;$('register').hidden=!reg;$('forgot').hidden=reg;
+   $('password').autocomplete=reg?'new-password':'current-password';
+ }
+ ['login-tab','register-tab','login','register'].forEach(id=>{
+   const old=$(id),fresh=old.cloneNode(true);old.replaceWith(fresh);
+ });
+ $('login-tab').addEventListener('click',()=>mode(false));
+ $('register-tab').addEventListener('click',()=>mode(true));
+ $('login').addEventListener('click',async()=>{
+   const email=$('email').value.trim(),password=$('password').value;
+   if(!email||!password){say('Email aur password dono bhariye.');return;}
+   say('Logging in…');
+   try{const r=await fetch(endpoint+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});const j=await r.json().catch(()=>({}));
+     if(!r.ok)throw Error(j.error||'Login nahi hua. Email/password check karein.');
+     sessionStorage.setItem('golive_token',j.token);localStorage.setItem('golive_user',JSON.stringify({id:j.user.id,username:j.user.username,email:j.user.email||''}));
+     say('Login successful. FUN LIVE account connected.');$('account').textContent='Signed in as '+j.user.username+' · GO LIVE ID: GLS'+String(j.user.id).padStart(8,'0');
+   }catch(e){say('Login error: '+(e.message||'Network error. Page refresh karke try karein.'));}
+ });
+ $('register').addEventListener('click',async()=>{
+   const email=$('email').value.trim(),password=$('password').value,gender=$('register-gender').value;
+   if(!email||!email.includes('@')){say('Valid email address daaliye.');return;}
+   if(password.length<10){say('Password kam se kam 10 characters ka hona chahiye.');return;}
+   say('Account create ho raha hai…');
+   try{const r=await fetch(endpoint+'/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,gender})});const j=await r.json().catch(()=>({}));
+     if(!r.ok)throw Error(j.error||'Account create nahi hua.');
+     sessionStorage.setItem('golive_token',j.token);localStorage.setItem('golive_user',JSON.stringify({id:j.user.id,username:j.user.username,email:j.user.email||''}));
+     say('Account create ho gaya! Aap signed in hain.');$('account').textContent='Signed in as '+j.user.username+' · GO LIVE ID: GLS'+String(j.user.id).padStart(8,'0');
+   }catch(e){say('Register error: '+(e.message||'Network error. Internet check karke refresh karein.'));}
+ });
+})();
 </script></div></body></html>
