@@ -1,0 +1,21 @@
+/* FUN LIVE withdrawal wallet responsive styling */
+.withdrawal-room{padding:0!important;overflow:hidden;border:1px solid #f4c6df!important;border-radius:22px!important;background:#fff8fc!important;box-shadow:0 12px 32px #b91d6718!important}
+.withdrawal-hero{padding:24px 20px!important;background:linear-gradient(135deg,#ff4b9a,#ed1680 58%,#a13bd3)!important;color:#fff!important}
+.withdrawal-hero h2{font-size:26px!important;color:#fff!important;margin:8px 0!important}
+.withdrawal-hero p{color:#fff!important}
+.withdrawal-balance{padding:14px!important;border-radius:16px!important;background:#ffffff22!important;border:1px solid #ffffff55!important;color:#fff!important;font-size:29px!important;font-weight:900!important}
+.withdrawal-chip{display:inline-block;padding:7px 10px;border-radius:30px;background:#ffffff22!important;border:1px solid #ffffff55!important;color:#fff!important}
+.withdrawal-rate-card{margin:13px!important;padding:15px!important;border-radius:17px!important;background:#fff!important;border:1px solid #f3d8e6!important}
+.withdrawal-rate-row{display:flex;align-items:center;gap:10px;padding:10px 0!important;border-bottom:1px solid #f6e6ef!important;color:#43273a!important}
+.withdrawal-rate-row:last-child{border:0}
+.withdrawal-rate-icon{display:grid;place-items:center;min-width:34px;height:34px;border-radius:11px;background:#fff0f7!important}
+.withdrawal-minimum{margin:13px!important;padding:14px!important;border-radius:16px!important;background:#fff0f7!important;border:1px solid #ffd0e5!important;color:#a7135d!important}
+.withdrawal-field-label{display:block;margin:16px 16px 7px!important;color:#48273c!important;font-weight:750!important}
+.withdrawal-room .field{margin:0 13px 12px!important;border:1px solid #edd7e4!important;border-radius:13px!important;background:#fff!important}
+.withdrawal-estimate{margin:0 13px 14px!important;padding:13px!important;border-radius:13px!important;background:#fff0f7!important;color:#ae155f!important;border:1px solid #ffd0e5!important;font-weight:700!important;line-height:1.6}
+.withdrawal-room #submit-withdrawal{width:calc(100% - 26px)!important;margin:14px 13px!important;min-height:50px!important;border-radius:15px!important;background:linear-gradient(100deg,#ff398b,#ec167d)!important;font-weight:800!important}
+.withdrawal-notes{margin:13px!important;padding:12px!important;border-radius:12px!important;background:#f8f1f6!important;color:#76556b!important;line-height:1.6!important;font-size:12px!important}
+.withdrawal-history-title{margin:18px 16px 10px!important;color:#48273c!important}
+#withdrawal-history{padding:0 13px 16px!important}
+.withdrawal-history-card{padding:13px!important;margin:9px 0!important;border-radius:13px!important;background:#fff!important;border:1px solid #f0dbe7!important;color:#422b3b!important}
+@media(min-width:700px){.withdrawal-room{max-width:720px;margin:20px auto!important}.withdrawal-hero{padding:30px!important}}
