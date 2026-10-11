@@ -419,3 +419,6 @@ body:has(.host-live-ui) .room:has(#media-view) .controls button{
 
 /* Ensure the government ID file picker receives taps on mobile */
 .agency-file-box{position:relative;overflow:hidden;cursor:pointer;isolation:isolate}.agency-file-box .agency-file-icon,.agency-file-box .agency-file-text,.agency-file-box .agency-file-button{pointer-events:none}.agency-file-box input[type=file]{display:block!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;opacity:0!important;z-index:5!important;cursor:pointer!important;margin:0!important;padding:0!important}
+
+/* Use a native, easy-to-tap consent checkbox on mobile */
+.agency-consent{position:relative;cursor:pointer;align-items:flex-start}.agency-consent input[type=checkbox]{appearance:auto!important;-webkit-appearance:checkbox!important;display:block!important;opacity:1!important;position:static!important;pointer-events:auto!important;flex:0 0 24px;width:24px;height:24px;min-width:24px;margin:2px 0 0!important;padding:0;accent-color:#f229a3;cursor:pointer;transform:scale(1.12);transform-origin:top left}.agency-consent span{flex:1;cursor:pointer}
