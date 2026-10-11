@@ -357,3 +357,15 @@ body:has(.host-live-ui) .room:has(#media-view) .controls button{
 .ended-save{border:0;background:linear-gradient(100deg,#f01892,#ff27a8);box-shadow:0 5px 18px #f0189244}.ended-summary,.ended-home{border:1px solid #67536c;background:#ffffff12}
 #ended-note{margin:0;color:#f6cce7;font-size:12px}
 @media(max-width:420px){.live-ended-screen{padding:20px 12px;gap:12px}.ended-avatar{width:112px;height:112px}.live-ended-screen h1{font-size:24px}.ended-stats{padding:14px 4px}.ended-stats strong{font-size:17px}.live-ended-screen button{padding:13px 8px;font-size:14px}}
+
+/* Host Settings — approved 12-option dark-purple/pink neon grid */
+.host-settings-panel{position:absolute;z-index:20;left:10px;right:10px;top:88px;max-height:calc(100% - 190px);overflow:auto;padding:14px;border:1px solid #ed3da8;border-radius:22px;background:linear-gradient(145deg,#1c0e2aF7,#090817F7);box-shadow:0 12px 36px #000a,0 0 18px #d82b9b30;color:#fff;backdrop-filter:blur(14px)}
+.host-settings-panel[hidden]{display:none!important}
+.host-settings-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;font-size:18px}
+.host-settings-heading button{width:34px;height:34px;border:1px solid #9b4d92;border-radius:50%;background:#29132f;color:#fff;font-size:24px}
+.host-settings-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.host-settings-grid button{min-width:0;min-height:76px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:8px 4px;border:1px solid #67416f;border-radius:15px;background:linear-gradient(145deg,#2a1538,#120d20);color:#fff;font-size:22px}
+.host-settings-grid button span{font-size:11px;line-height:1.2;text-align:center}
+.host-settings-grid button:active{border-color:#ff35b0;background:#40143d}
+.host-settings-detail{margin-top:12px;padding:10px 12px;border:1px solid #51345c;border-radius:13px;background:#0b0918;color:#f5c9e6;font-size:12px;line-height:1.45;min-height:38px}
+@media(max-width:420px){.host-settings-panel{left:7px;right:7px;top:84px;padding:10px;max-height:calc(100% - 170px)}.host-settings-grid{gap:6px}.host-settings-grid button{min-height:68px;border-radius:13px}.host-settings-grid button span{font-size:10px}}
