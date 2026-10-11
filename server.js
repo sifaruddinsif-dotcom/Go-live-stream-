@@ -119,7 +119,7 @@ async function auth(req, res, next) {
   if (!raw.startsWith("Bearer ")) return res.status(401).json({ error: "Sign in required." });
   try {
     const payload = jwt.verify(raw.slice(7), JWT_SECRET, { issuer: "go-live-stream" });
-    const result = await pool.query("SELECT id, username, email, bio, created_at FROM users WHERE id=$1", [payload.sub]);
+    const result = await pool.query("SELECT id, username, email, bio, gender, created_at FROM users WHERE id=$1", [payload.sub]);
     if (!result.rowCount) return res.status(401).json({ error: "Account not found." });
     req.user = result.rows[0]; next();
   } catch { return res.status(401).json({ error: "Invalid or expired session." }); }
