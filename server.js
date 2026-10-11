@@ -496,7 +496,7 @@ app.get("/api/admin/withdrawals",auth,requireAdmin,async(req,res)=>{
   }catch{res.status(500).json({error:"Could not load withdrawal requests."});}
 });
 app.patch("/api/admin/withdrawals/:id",auth,requireAdmin,async(req,res)=>{
-  if(!/^\\d+$/.test(req.params.id)) return res.status(400).json({error:"Invalid withdrawal ID."});
+  if(!/^[0-9]+$/.test(req.params.id)) return res.status(400).json({error:"Invalid withdrawal ID."});
   const nextStatus=String(req.body?.status||"");
   if(!["approved","rejected","paid"].includes(nextStatus)) return res.status(400).json({error:"Status must be approved, rejected, or paid."});
   const client=await pool.connect();
