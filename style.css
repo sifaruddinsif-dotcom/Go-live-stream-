@@ -201,3 +201,29 @@ body:has(.host-live-ui) .room:has(#media-view) .controls button{
  .host-live-ui .host-feature-bar{padding:16px 7px 26px!important}
  .host-live-ui .host-feature-bar button{min-width:65px!important;padding:10px 8px!important;font-size:11px!important}
 }
+
+
+/* Put the three-dot tools control beside the comment input, not in the header. */
+.host-live-ui .host-more-bottom{
+ flex:0 0 42px!important;width:42px!important;height:42px!important;
+ display:flex!important;align-items:center!important;justify-content:center!important;
+ border:1px solid #a33b93!important;border-radius:50%!important;
+ background:linear-gradient(135deg,#251037,#100a1b)!important;color:#fff!important;
+ font-size:20px!important;box-shadow:0 0 12px #ed168a25!important;
+}
+.host-live-ui .host-live-bottom{gap:7px!important}
+.host-live-ui .host-comment-form{order:0!important;flex:1 1 auto!important}
+.host-live-ui .host-more-bottom{order:0!important}
+.host-live-ui .host-gift{order:2!important}
+.host-live-ui .host-feature-bar{
+ top:auto!important;bottom:72px!important;
+ padding:16px 8px 20px!important;
+ border-radius:22px!important;
+}
+.host-live-ui .host-feature-bar:not([hidden]){
+ display:flex!important;
+}
+@media(max-width:420px){
+ .host-live-ui .host-more-bottom{flex-basis:38px!important;width:38px!important;height:38px!important;font-size:18px!important}
+ .host-live-ui .host-live-bottom{gap:6px!important}
+}
