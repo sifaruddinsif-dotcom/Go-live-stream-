@@ -70,7 +70,47 @@ async function loadWithdrawalSummary(){
  const box=$('withdrawal-summary');if(!box)return;
  try{
   const r=await call('/api/withdrawal/summary');
-  box.textContent='Available: '+Number(r.diamonds).toLocaleString()+' diamonds · Minimum: '+Number(r.minimumDiamonds).toLocaleString()+' · Rate: '+r.diamondsPerUSD+' diamonds = $1 · $1 = ₹'+r.usdInrRate+' · Estimated value: 
+  const diamonds=Number(r.diamonds)||0, minimum=Number(r.minimumDiamonds)||10000;
+  const perUsd=Number(r.diamondsPerUSD)||9500, usdRate=Number(r.usdInrRate)||95;
+  const usd=diamonds/perUsd, inr=usd*usdRate;
+  const display=$('withdrawal-diamond-display');
+  if(display)display.innerHTML='💎 '+diamonds.toLocaleString()+' <small>diamonds available</small>';
+  box.innerHTML='<h3>💱 Conversion Rate</h3>'+
+   '<div class="withdrawal-rate-row"><span class="withdrawal-rate-icon">💎</span><span><b>'+perUsd.toLocaleString()+' diamonds = $1 USD</b></span></div>'+
+   '<div class="withdrawal-rate-row"><span class="withdrawal-rate-icon">₹</span><span><b>$1 USD = ₹'+usdRate.toLocaleString('en-IN')+' INR</b></span></div>'+
+   '<div class="withdrawal-rate-row"><span class="withdrawal-rate-icon">💰</span><span>Available value: <b>$'+usd.toFixed(2)+' · ₹'+inr.toFixed(2)+'</b></span></div>';
+  const estimate=$('withdrawal-estimate');
+  if(estimate)estimate.textContent='10,000 diamonds ≈ $'+(10000/perUsd).toFixed(2)+' USD ≈ ₹'+((10000/perUsd)*usdRate).toFixed(2)+' INR';
+  const amount=$('withdrawal-diamonds');
+  if(amount){amount.min=String(minimum);amount.placeholder='Minimum '+minimum.toLocaleString()+' diamonds';}
+  const history=$('withdrawal-history');
+  if(history){
+   history.innerHTML=(r.requests||[]).length?(r.requests.map(x=>'<div class="withdrawal-history-card"><div><strong>'+Number(x.diamonds).toLocaleString()+' diamonds</strong> · ₹'+Number(x.inrAmount||0).toFixed(2)+'</div><div style="display:flex;justify-content:space-between;gap:8px;margin-top:8px"><span>$'+Number(x.usdAmount||0).toFixed(2)+' USD</span><span class="withdrawal-status-pill">'+safe(x.status||'pending').toUpperCase()+'</span></div><small>'+safe(x.createdAt||x.created_at||'')+'</small></div>').join('')):'<p class="note">No withdrawal requests yet.</p>';
+  }
+ }catch(e){box.textContent='Sign in to view your diamonds and conversion rate. '+(e.message||'');}
+}
+$('withdrawal-diamonds')?.addEventListener('input',()=>{
+ const n=Math.max(0,Number($('withdrawal-diamonds').value)||0);
+ const summary=$('withdrawal-summary');
+ const rateText=summary?.textContent||'';
+ const perUsd=Number(rateText.match(/([\d,]+) diamonds = \$1 USD/)?.[1]?.replace(/,/g,''))||9500;
+ const usdRate=Number(rateText.match(/\$1 USD = ₹([\d,]+)/)?.[1]?.replace(/,/g,''))||95;
+ const estimate=$('withdrawal-estimate');
+ if(estimate)estimate.textContent=n?('Estimated: '+n.toLocaleString()+' diamonds ≈ $'+(n/perUsd).toFixed(2)+' USD ≈ ₹'+((n/perUsd)*usdRate).toFixed(2)+' INR'):'Enter an amount to see the estimated USD and INR value.';
+});
+$('submit-withdrawal')?.addEventListener('click',()=>action(async()=>{
+ const diamonds=Number($('withdrawal-diamonds').value);
+ const payout=$('withdrawal-payout').value.trim();
+ if(!Number.isInteger(diamonds)||diamonds<10000)throw Error('Minimum withdrawal is 10,000 diamonds.');
+ if(!payout)throw Error('Enter your UPI ID or bank payout details.');
+ const button=$('submit-withdrawal');button.disabled=true;button.textContent='Submitting request…';
+ try{
+  const result=await call('/api/withdrawals','POST',{diamonds,payoutDetails:payout});
+  status('Withdrawal request submitted. It is pending manual review; no automatic payout has been made.');
+  $('withdrawal-diamonds').value='';await loadWithdrawalSummary();
+ }finally{button.disabled=false;button.textContent='Request Withdrawal →';}
+}));
+$('save-gender').onclick=()=>action(async()=>{
  const gender=$('profile-gender').value;
  if(!['male','female','other'].includes(gender))throw Error('Choose Male, Female, or Other.');
  const r=await call('/api/me','PATCH',{gender});
