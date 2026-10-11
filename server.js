@@ -445,6 +445,23 @@ app.get("/api/me/profile-stats", auth, async (req,res) => {
   } catch { res.status(500).json({error:"Could not load profile statistics."}); }
 });
 
+app.get("/api/me/connections", auth, async (req,res) => {
+  const type=String(req.query.type||"followers");
+  if(!["following","followers","friends"].includes(type))return res.status(400).json({error:"Invalid connection list."});
+  try {
+    let result;
+    if(type==="following") {
+      result=await pool.query("SELECT u.id,u.username FROM follows f JOIN users u ON u.id=f.following_id WHERE f.follower_id=$1 ORDER BY f.created_at DESC",[req.user.id]);
+    } else if(type==="followers") {
+      result=await pool.query("SELECT u.id,u.username FROM follows f JOIN users u ON u.id=f.follower_id WHERE f.following_id=$1 ORDER BY f.created_at DESC",[req.user.id]);
+    } else {
+      result=await pool.query("SELECT u.id,u.username FROM follows f JOIN follows mutual ON mutual.follower_id=f.following_id AND mutual.following_id=f.follower_id JOIN users u ON u.id=f.following_id WHERE f.follower_id=$1 ORDER BY f.created_at DESC",[req.user.id]);
+    }
+    res.json({type,users:result.rows.map(u=>({...u,publicId:String(7000000+Number(u.id))}))});
+  } catch {res.status(500).json({error:"Could not load connection list."});}
+});
+
+
 app.patch("/api/me", auth, async (req,res) => {
   const bio = String(req.body?.bio ?? req.user.bio).trim();
   if (bio.length > 160) return res.status(400).json({ error: "Bio must be 160 characters or fewer." });
