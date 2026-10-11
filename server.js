@@ -487,6 +487,50 @@ function requireAdmin(req,res,next){
   if(!allowed.includes(String(req.user.id))) return res.status(403).json({error:"Admin access required."});
   next();
 }
+app.get("/api/admin/overview",auth,requireAdmin,async(_req,res)=>{
+  try{
+    const [users,rooms,live,withdrawals,pending,payments,gifts,calls,reports]=await Promise.all([
+      pool.query("SELECT COUNT(*)::int AS n FROM users"),
+      pool.query("SELECT COUNT(*)::int AS n FROM rooms"),
+      pool.query("SELECT COUNT(*)::int AS n FROM rooms WHERE kind='live'"),
+      pool.query("SELECT COUNT(*)::int AS n FROM withdrawal_requests"),
+      pool.query("SELECT COUNT(*)::int AS n FROM withdrawal_requests WHERE status='pending'"),
+      pool.query("SELECT COUNT(*)::int AS n FROM payment_orders WHERE status='paid'"),
+      pool.query("SELECT COUNT(*)::int AS n FROM live_gifts"),
+      pool.query("SELECT COUNT(*)::int AS n FROM call_requests"),
+      pool.query("SELECT COUNT(*)::int AS n FROM live_reports")
+    ]);
+    res.json({stats:{total_users:users.rows[0].n,total_rooms:rooms.rows[0].n,live_rooms:live.rows[0].n,total_withdrawals:withdrawals.rows[0].n,pending_withdrawals:pending.rows[0].n,paid_orders:payments.rows[0].n,total_gifts:gifts.rows[0].n,total_calls:calls.rows[0].n,live_reports:reports.rows[0].n}});
+  }catch{res.status(500).json({error:"Could not load admin overview."});}
+});
+app.get("/api/admin/users",auth,requireAdmin,async(_req,res)=>{
+  try{const r=await pool.query("SELECT id,username,email,created_at FROM users ORDER BY created_at DESC LIMIT 500");res.json({users:r.rows});}
+  catch{res.status(500).json({error:"Could not load users."});}
+});
+app.get("/api/admin/hosts",auth,requireAdmin,async(_req,res)=>{
+  try{const r=await pool.query("SELECT u.id,u.username,COUNT(DISTINCT rm.id)::int AS live_rooms,COALESCE(d.balance,0)::bigint AS diamonds FROM users u LEFT JOIN rooms rm ON rm.owner_id=u.id AND rm.kind='live' LEFT JOIN diamond_accounts d ON d.user_id=u.id GROUP BY u.id,u.username,d.balance ORDER BY live_rooms DESC,u.created_at DESC LIMIT 500");res.json({hosts:r.rows});}
+  catch{res.status(500).json({error:"Could not load host candidates."});}
+});
+app.get("/api/admin/payments",auth,requireAdmin,async(_req,res)=>{
+  try{const r=await pool.query("SELECT p.order_id,p.user_id,u.username,p.amount_paise,p.coins,p.status,p.created_at,p.paid_at FROM payment_orders p JOIN users u ON u.id=p.user_id ORDER BY p.created_at DESC LIMIT 300");res.json({payments:r.rows});}
+  catch{res.status(500).json({error:"Could not load payments."});}
+});
+app.get("/api/admin/rooms",auth,requireAdmin,async(_req,res)=>{
+  try{const r=await pool.query("SELECT rm.id,rm.title,rm.kind,rm.created_at,u.username AS host FROM rooms rm JOIN users u ON u.id=rm.owner_id ORDER BY rm.created_at DESC LIMIT 300");res.json({rooms:r.rows});}
+  catch{res.status(500).json({error:"Could not load rooms."});}
+});
+app.get("/api/admin/reports",auth,requireAdmin,async(_req,res)=>{
+  try{const r=await pool.query("SELECT lr.id,lr.room_id,u.username AS reporter,lr.reason,lr.details,lr.created_at FROM live_reports lr JOIN users u ON u.id=lr.reporter_id ORDER BY lr.created_at DESC LIMIT 300");res.json({reports:r.rows});}
+  catch{res.status(500).json({error:"Could not load reports."});}
+});
+app.get("/api/admin/gifts",auth,requireAdmin,async(_req,res)=>{
+  try{const r=await pool.query("SELECT gift_key,COUNT(*)::int AS count,COALESCE(SUM(coins),0)::bigint AS coins,MAX(created_at) AS latest FROM live_gifts GROUP BY gift_key ORDER BY coins DESC LIMIT 100");res.json({gifts:r.rows});}
+  catch{res.status(500).json({error:"Could not load gift history."});}
+});
+app.get("/api/admin/calls",auth,requireAdmin,async(_req,res)=>{
+  try{const r=await pool.query("SELECT c.id,c.status,c.created_at,a.username AS caller,b.username AS callee FROM call_requests c JOIN users a ON a.id=c.caller_id JOIN users b ON b.id=c.callee_id ORDER BY c.created_at DESC LIMIT 300");res.json({calls:r.rows});}
+  catch{res.status(500).json({error:"Could not load call history."});}
+});
 app.get("/api/admin/withdrawals",auth,requireAdmin,async(req,res)=>{
   const status=String(req.query.status||"all");
   if(!["all","pending","approved","paid","rejected"].includes(status)) return res.status(400).json({error:"Invalid status filter."});
