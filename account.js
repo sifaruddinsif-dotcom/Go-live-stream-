@@ -10,6 +10,66 @@ async function setupPreview(){
  catch(e){setupStatus('Camera preview unavailable. Start Live can still request camera access.');}
 }
 function stopSetupPreview(){if(setupState.stream){setupState.stream.getTracks().forEach(t=>t.stop());setupState.stream=null;}const v=$('setup-camera-preview');if(v)v.srcObject=null;}
+
+/* Reliable capture-phase wiring for the Go Live setup controls. */
+document.addEventListener('click',async event=>{
+ const button=event.target.closest('#setup-start-live,#setup-camera,#setup-mic,#setup-flip,#setup-beauty,#setup-filter,#setup-video-tab,#setup-call-tab,#setup-back');
+ if(!button)return;
+ event.preventDefault();
+ event.stopImmediatePropagation();
+ try{
+  if(button.id==='setup-start-live'){
+   if(setupState.mode==='call'){setupStatus('Video Call selected. Use the existing 1-to-1 Video Call section below.');return;}
+   const title=$('setup-title')?.value.trim();
+   if(!title){setupStatus('Please enter a live title first.');$('setup-title')?.focus();return;}
+   $('room-title').value=title;
+   const kind=$('room-kind');if(kind)kind.value='live';
+   setupStatus('Starting your live…');
+   stopSetupPreview();
+   $('create')?.click();
+   return;
+  }
+  if(button.id==='setup-camera'){
+   setupState.cameraOff=!setupState.cameraOff;
+   if(setupState.cameraOff){
+    stopSetupPreview();
+    const placeholder=$('setup-camera-placeholder');if(placeholder){placeholder.hidden=false;const small=placeholder.querySelector('small');if(small)small.textContent='Camera is off';}
+    button.classList.add('disabled');setupStatus('Camera preview turned off.');
+   }else{
+    const placeholder=$('setup-camera-placeholder');if(placeholder){const small=placeholder.querySelector('small');if(small)small.textContent='Tap Camera to enable preview';}
+    button.classList.remove('disabled');await setupPreview();
+   }
+   return;
+  }
+  if(button.id==='setup-mic'){
+   setupState.muted=!setupState.muted;button.classList.toggle('disabled',setupState.muted);
+   setupStatus(setupState.muted?'Microphone selected as muted for the preview.':'Microphone selected as on.');
+   return;
+  }
+  if(button.id==='setup-flip'){
+   setupState.front=!setupState.front;stopSetupPreview();setupStatus('Switching camera…');await setupPreview();return;
+  }
+  if(button.id==='setup-beauty'){
+   setupState.beauty=!setupState.beauty;
+   const preview=$('setup-camera-preview');if(preview)preview.style.filter=setupState.beauty?'brightness(1.08) saturate(1.12) contrast(1.03)':'none';
+   button.classList.toggle('selected',setupState.beauty);setupStatus(setupState.beauty?'Beauty effect enabled.':'Beauty effect disabled.');return;
+  }
+  if(button.id==='setup-filter'){
+   setupState.filter=(setupState.filter+1)%4;
+   const filters=['none','sepia(.16) saturate(1.15)','saturate(1.3) hue-rotate(-8deg)','grayscale(.12) contrast(1.06)'];
+   const preview=$('setup-camera-preview');if(preview)preview.style.filter=filters[setupState.filter];
+   button.classList.toggle('selected',setupState.filter!==0);setupStatus('Filter '+(setupState.filter===0?'off':'changed')+'.');return;
+  }
+  if(button.id==='setup-video-tab'||button.id==='setup-call-tab'){
+   setupState.mode=button.id==='setup-call-tab'?'call':'live';
+   $('setup-video-tab')?.classList.toggle('active',setupState.mode==='live');
+   $('setup-call-tab')?.classList.toggle('active',setupState.mode==='call');
+   $('setup-start-live').innerHTML=setupState.mode==='live'?'<span>◉</span> Start Live':'<span>📞</span> Continue to Video Call';
+   setupStatus(setupState.mode==='live'?'Video Live selected':'Video Call selected. Use the existing 1-to-1 Video Call section below.');return;
+  }
+  if(button.id==='setup-back'){stopSetupPreview();location.hash='rooms';}
+ }catch(error){setupStatus('Button error: '+(error?.message||'Please retry.'));}
+},true);
 if($('setup-start-live'))$('setup-start-live').addEventListener('click',async()=>{
  if(setupState.mode==='call'){setupStatus('Video Call selected. Use the existing 1-to-1 Video Call section below.');return;}
  const title=$('setup-title').value.trim();if(!title){setupStatus('Please enter a live title first.');$('setup-title').focus();return;}
