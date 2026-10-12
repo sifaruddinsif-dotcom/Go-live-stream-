@@ -212,7 +212,7 @@ async function initDb() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE(user_id,reward_date)
     );
-    INSERT INTO app_task_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+    INSERT INTO app_task_settings (id,live_hours,reward_usd,duration_days,enabled,female_only) VALUES (1,16,15,7,TRUE,TRUE) ON CONFLICT (id) DO UPDATE SET live_hours=CASE WHEN app_task_settings.live_hours=17 THEN 16 ELSE app_task_settings.live_hours END;
   `);
 }
 function tokenFor(user) { return jwt.sign({ sub: String(user.id), username: user.username }, JWT_SECRET, { expiresIn: "7d", issuer: "go-live-stream" }); }
