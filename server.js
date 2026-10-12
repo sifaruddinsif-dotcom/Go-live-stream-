@@ -327,6 +327,28 @@ app.get("/api/wallet", auth, async (req,res) => {
     res.json({balance:Number(r.rows[0].balance),currency:"FUN coins",notice:"Promotional test coins only; they have no cash value."});
   } catch { res.status(500).json({error:"Could not load wallet."}); }
 });
+app.post("/api/wallet/test-coins", auth, async (req,res) => {
+  const client=await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("INSERT INTO wallet_accounts(user_id,balance) VALUES($1,100) ON CONFLICT(user_id) DO NOTHING",[req.user.id]);
+    const wallet=await client.query("SELECT balance FROM wallet_accounts WHERE user_id=$1 FOR UPDATE",[req.user.id]);
+    const prior=await client.query("SELECT id FROM wallet_transactions WHERE user_id=$1 AND kind='test_grant' AND reference='gift-test-coins-v1' LIMIT 1",[req.user.id]);
+    if(prior.rowCount){
+      await client.query("COMMIT");
+      return res.status(409).json({error:"Your one-time free test coin grant has already been used.",balance:Number(wallet.rows[0].balance)});
+    }
+    await client.query("UPDATE wallet_accounts SET balance=balance+100000,updated_at=NOW() WHERE user_id=$1",[req.user.id]);
+    await client.query("INSERT INTO wallet_transactions(user_id,amount,kind,reference) VALUES($1,100000,'test_grant','gift-test-coins-v1')",[req.user.id]);
+    const updated=await client.query("SELECT balance FROM wallet_accounts WHERE user_id=$1",[req.user.id]);
+    await client.query("COMMIT");
+    res.json({balance:Number(updated.rows[0].balance),added:100000,notice:"One-time promotional test coins; no cash value."});
+  } catch(e) {
+    await client.query("ROLLBACK").catch(()=>{});
+    console.error("Test coin grant failed:",e?.message||"unknown error");
+    res.status(500).json({error:"Could not add test coins."});
+  } finally {client.release();}
+});
 app.get("/api/gifts/catalog", (_req,res) => res.json({gifts:Object.entries(GIFT_CATALOG).map(([key,g])=>({key,...g}))}));
 app.post("/api/gifts/send", auth, async (req,res) => {
   const roomId=String(req.body?.roomId||"");
