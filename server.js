@@ -141,10 +141,20 @@ async function initDb() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       paid_at TIMESTAMPTZ
     );
+    CREATE TABLE IF NOT EXISTS female_host_weekly_missions (
+      user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      live_seconds INTEGER NOT NULL DEFAULT 0 CHECK(live_seconds >= 0),
+      last_heartbeat_at TIMESTAMPTZ,
+      completed_at TIMESTAMPTZ,
+      reward_diamonds BIGINT NOT NULL DEFAULT 142500,
+      reward_credited_at TIMESTAMPTZ,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
     CREATE TABLE IF NOT EXISTS app_task_settings (
       id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
       female_only BOOLEAN NOT NULL DEFAULT TRUE,
-      live_hours NUMERIC(5,2) NOT NULL DEFAULT 17 CHECK (live_hours > 0 AND live_hours <= 168),
+      live_hours NUMERIC(5,2) NOT NULL DEFAULT 16 CHECK (live_hours > 0 AND live_hours <= 168),
       reward_usd NUMERIC(10,2) NOT NULL DEFAULT 15 CHECK (reward_usd >= 0 AND reward_usd <= 100000),
       duration_days INTEGER NOT NULL DEFAULT 7 CHECK (duration_days > 0 AND duration_days <= 365),
       enabled BOOLEAN NOT NULL DEFAULT TRUE,
@@ -726,6 +736,52 @@ app.post("/api/daily-rewards/claim",auth,async(req,res)=>{
     res.json({notice:"Daily reward claimed successfully!",coins,balance:Number(bal.rows[0].balance),claimed:true});
   } catch(err) { await client.query("ROLLBACK").catch(()=>{});console.error("daily reward claim failed",err);res.status(500).json({error:"Could not claim daily reward. Please try again."}); }
   finally {client.release();}
+});
+
+// Female-host weekly live mission. Rewards are credited to the diamond/Received Wallet, never coin wallet.
+app.get("/api/female-host-mission",auth,async(req,res)=>{
+ try {
+  const user=await pool.query("SELECT gender FROM users WHERE id=$1",[req.user.id]);
+  if(!user.rowCount)return res.status(404).json({error:"User not found."});
+  const settings=await pool.query("SELECT female_only,live_hours,reward_usd,duration_days,enabled FROM app_task_settings WHERE id=1");
+  const cfg=settings.rows[0]||{female_only:true,live_hours:16,reward_usd:15,duration_days:7,enabled:true};
+  const gender=String(user.rows[0].gender||"").toLowerCase();
+  if(cfg.enabled===false || (cfg.female_only!==false && !["female","woman"].includes(gender)))return res.json({eligible:false,reason:"This weekly mission is available to eligible female hosts only.",liveSeconds:0,targetSeconds:Number(cfg.live_hours||16)*3600,rewardUSD:Number(cfg.reward_usd||15),rewardDiamonds:142500,durationDays:Number(cfg.duration_days||7)});
+  await pool.query("INSERT INTO female_host_weekly_missions(user_id,reward_diamonds) VALUES($1,142500) ON CONFLICT(user_id) DO NOTHING",[req.user.id]);
+  const q=await pool.query("SELECT *,GREATEST(0,EXTRACT(EPOCH FROM (started_at + ($2 || ' days')::interval - NOW()))::int) AS seconds_left FROM female_host_weekly_missions WHERE user_id=$1",[req.user.id,String(cfg.duration_days||7)]);
+  const m=q.rows[0],target=Math.round(Number(cfg.live_hours||16)*3600);
+  res.json({eligible:true,liveSeconds:Number(m.live_seconds),targetSeconds:target,rewardUSD:Number(cfg.reward_usd||15),rewardDiamonds:Number(m.reward_diamonds),durationDays:Number(cfg.duration_days||7),secondsLeft:Number(m.seconds_left),completed:Boolean(m.completed_at),credited:Boolean(m.reward_credited_at),startedAt:m.started_at,completedAt:m.completed_at});
+ } catch(e){console.error("Female host mission read failed:",e?.message||e);res.status(500).json({error:"Could not load weekly mission."});}
+});
+app.post("/api/female-host-mission/heartbeat",auth,async(req,res)=>{
+ const client=await pool.connect();
+ try{
+  await client.query("BEGIN");
+  const user=await client.query("SELECT gender FROM users WHERE id=$1 FOR UPDATE",[req.user.id]);
+  const cfgq=await client.query("SELECT female_only,live_hours,reward_usd,duration_days,enabled FROM app_task_settings WHERE id=1");
+  const cfg=cfgq.rows[0]||{female_only:true,live_hours:16,reward_usd:15,duration_days:7,enabled:true};
+  if(!user.rowCount || cfg.enabled===false || (cfg.female_only!==false && !["female","woman"].includes(String(user.rows[0]?.gender||"").toLowerCase()))){await client.query("ROLLBACK");return res.status(403).json({error:"This mission is available to eligible female hosts only."});}
+  const roomId=String(req.body?.roomId||"");
+  if(!/^\d+$/.test(roomId)){await client.query("ROLLBACK");return res.status(400).json({error:"A valid live room is required."});}
+  const room=await client.query("SELECT id FROM rooms WHERE id=$1 AND owner_id=$2 AND kind='live'",[roomId,req.user.id]);
+  if(!room.rowCount){await client.query("ROLLBACK");return res.status(403).json({error:"Only the owner of an active live room can track mission time."});}
+  await client.query("INSERT INTO female_host_weekly_missions(user_id,reward_diamonds) VALUES($1,142500) ON CONFLICT(user_id) DO NOTHING",[req.user.id]);
+  const q=await client.query("SELECT *,NOW()-started_at AS elapsed FROM female_host_weekly_missions WHERE user_id=$1 FOR UPDATE",[req.user.id]);
+  const m=q.rows[0],days=Number(cfg.duration_days||7),target=Math.round(Number(cfg.live_hours||16)*3600);
+  if(m.reward_credited_at){await client.query("COMMIT");return res.json({completed:true,credited:true,liveSeconds:Number(m.live_seconds),targetSeconds:target});}
+  if(Number(m.elapsed?.days||0)>=days){await client.query("COMMIT");return res.json({expired:true,liveSeconds:Number(m.live_seconds),targetSeconds:target});}
+  const delta=m.last_heartbeat_at?Math.max(0,Math.min(45,Math.floor((Date.now()-new Date(m.last_heartbeat_at).getTime())/1000))):0;
+  let seconds=Math.min(target,Number(m.live_seconds)+delta),completedAt=null,creditedAt=null;
+  if(seconds>=target){
+    await client.query("INSERT INTO diamond_accounts(user_id,balance) VALUES($1,0) ON CONFLICT(user_id) DO NOTHING",[req.user.id]);
+    await client.query("UPDATE diamond_accounts SET balance=balance+$1,updated_at=NOW() WHERE user_id=$2",[Number(m.reward_diamonds||142500),req.user.id]);
+    completedAt=new Date();
+    creditedAt=completedAt;
+  }
+  const upd=await client.query("UPDATE female_host_weekly_missions SET live_seconds=$1,last_heartbeat_at=NOW(),completed_at=COALESCE(completed_at,$2),reward_credited_at=COALESCE(reward_credited_at,$3),updated_at=NOW() WHERE user_id=$4 RETURNING live_seconds,completed_at,reward_credited_at,reward_diamonds",[seconds,completedAt,creditedAt,req.user.id]);
+  await client.query("COMMIT");
+  res.json({liveSeconds:Number(upd.rows[0].live_seconds),targetSeconds:target,completed:Boolean(upd.rows[0].completed_at),credited:Boolean(upd.rows[0].reward_credited_at),rewardDiamonds:Number(upd.rows[0].reward_diamonds)});
+ }catch(e){await client.query("ROLLBACK").catch(()=>{});console.error("Female host mission heartbeat failed:",e?.message||e);res.status(500).json({error:"Could not update weekly mission."});}finally{client.release();}
 });
 app.get("/api/admin/task-settings",auth,requireAdmin,async(_req,res)=>{
   try { const q=await pool.query("SELECT female_only,live_hours,reward_usd,duration_days,enabled,daily_reward_min,daily_reward_max,updated_at FROM app_task_settings WHERE id=1"); res.json({settings:q.rows[0]}); }
