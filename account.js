@@ -418,8 +418,9 @@ async function joinMedia(id){
  mediaClient.on('user-left',user=>{const el=document.getElementById('agora-user-'+user.uid);if(el)el.remove();});
  status('Connecting to Agora media server…');
  try{
-   await mediaClient.join(data.appId,data.channelName,data.token,data.uid);
+   // Agora Live Broadcasting requires the client role to be set before joining.
    if(data.mode==='live')await mediaClient.setClientRole(data.role==='host'?'host':'audience');
+   await mediaClient.join(data.appId,data.channelName,data.token,data.uid);
    if(data.role==='host'){
      // Build one microphone track and exactly one camera video track.
      const micTrack=await AgoraRTC.createMicrophoneAudioTrack();
