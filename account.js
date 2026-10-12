@@ -27,30 +27,7 @@ if($('setup-back'))$('setup-back').onclick=()=>{stopSetupPreview();location.hash
 
 
 
-// Early delegated safety handler: works even if a later legacy handler is overwritten.
-document.addEventListener('click',async function(e){
- const btn=e.target.closest('#create');
- if(!btn)return;
- e.preventDefault();e.stopImmediatePropagation();
- if(btn.dataset.busy==='1')return;
- btn.dataset.busy='1';const original=btn.textContent;btn.disabled=true;btn.textContent='Connecting…';
- const show=s=>{let el=document.getElementById('rooms-status')||document.getElementById('status');if(!el){el=document.createElement('p');el.id='rooms-status';el.className='note';(document.getElementById('rooms')||document.body).prepend(el)}el.style.display='block';el.textContent=s;el.scrollIntoView({behavior:'smooth',block:'center'});};
- try{
-  let liveToken=localStorage.getItem('golive_token')||sessionStorage.getItem('golive_token')||'';
-  if(!liveToken){show('Signing you in securely…');const r=await fetch((localStorage.getItem('golive_api_endpoint')||'https://go-live-stream-api.onrender.com')+'/api/auth/guest',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});const j=await r.json().catch(()=>({}));if(!r.ok||!j.token)throw Error(j.error||'Guest sign-in failed.');liveToken=j.token;localStorage.setItem('golive_token',liveToken);sessionStorage.setItem('golive_token',liveToken);if(typeof token!=='undefined')token=liveToken;if(j.user&&typeof accountLabel==='function')accountLabel(j.user);}
-  if(typeof token!=='undefined')token=liveToken;
-  const title=document.getElementById('room-title')?.value.trim();if(!title)throw Error('Pehle live title likho.');
-  show('Creating your live room…');const endpoint=localStorage.getItem('golive_api_endpoint')||'https://go-live-stream-api.onrender.com';
-  const r=await fetch(endpoint+'/api/rooms',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+liveToken},body:JSON.stringify({title,kind:'live'})});const j=await r.json().catch(()=>({}));
-  if(!r.ok||!j.room?.id)throw Error(j.error||'Live room create nahi hua.');
-  const roomId=j.room.id;const id=document.getElementById('room-id');if(id)id.value=roomId;
-  const label=document.getElementById('room-id-label');if(label)label.textContent='Live room #'+roomId+' — share this number with viewers.';
-  show('Room created. Connecting camera and microphone…');
-  if(typeof joinMedia!=='function')throw Error('Room created (#'+roomId+'), but camera connector did not load. Please send this message.');
-  await joinMedia(roomId);document.dispatchEvent(new CustomEvent('fun-live-started',{detail:{roomId,title}}));
- }catch(err){show('❌ Live start nahi hua: '+(err.message||'Unknown error'));}
- finally{btn.disabled=false;btn.textContent=original;btn.dataset.busy='0';}
-},true);
+// Use the single established Start Live handler below; avoid duplicate capture-phase interception.
 const safe=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let endpoint=localStorage.getItem('golive_api_endpoint')||'https://go-live-stream-api.onrender.com';
 let token=sessionStorage.getItem('golive_token')||localStorage.getItem('golive_token')||'';
