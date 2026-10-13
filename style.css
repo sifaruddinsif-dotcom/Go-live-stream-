@@ -489,3 +489,7 @@ body:has(.host-live-ui) .room:has(#media-view) .controls button{
 .level-switch button.active[data-level-type="wallet"]{background:linear-gradient(110deg,#00dff5,#193cff)!important;border-color:#53efff!important;box-shadow:0 0 15px #00aaff55!important}
 .level-summary-card:has(+ .level-grid-heading #level-grid-title){border-color:#00cfff}
 .level-summary-card:has(+ .level-grid-heading #level-grid-title) .level-badge{box-shadow:0 0 15px #00cfff55}
+
+/* Hide the camera preview area on the Go Live setup screen as requested. */
+.setup-camera-stage{height:118px!important;min-height:118px!important;background:transparent!important}
+.setup-camera-stage>video,.setup-camera-placeholder{display:none!important}
