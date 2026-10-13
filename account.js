@@ -10,6 +10,23 @@ async function setupPreview(){
  catch(e){setupStatus('Camera preview unavailable. Start Live can still request camera access.');}
 }
 function stopSetupPreview(){if(setupState.stream){setupState.stream.getTracks().forEach(t=>t.stop());setupState.stream=null;}const v=$('setup-camera-preview');if(v)v.srcObject=null;}
+/* Explicit global entry point for mobile Go Live tap. */
+window.funLiveStartFromPreview=async function(){
+ const button=$('setup-start-live'),titleEl=$('setup-title'),title=titleEl?.value.trim();
+ if(setupState.mode==='call'){setupStatus('Video Call selected. Use the Video Call section below.');return;}
+ if(!title){setupStatus('Please enter a live title first.');titleEl?.focus();return;}
+ if(button){button.disabled=true;button.textContent='Connecting…';}
+ try{
+  $('room-title').value=title;
+  const kind=$('room-kind');if(kind)kind.value='live';
+  setupStatus('Starting your live…');
+  stopSetupPreview();
+  const create=$('create');
+  if(typeof create?.onclick==='function') await create.onclick();
+  else {setupStatus('Start Live handler is not loaded. Please refresh once.');}
+ }catch(error){setupStatus('Live start failed: '+(error?.message||'Please try again.'));}
+ finally{if(button){button.disabled=false;button.innerHTML='<span>◉</span> Start Live';}}
+};
 
 /* Reliable capture-phase wiring for the Go Live setup controls. */
 document.addEventListener('click',async event=>{
