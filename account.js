@@ -165,11 +165,11 @@ async function action(fn){try{await fn()}catch(e){status('⚠️ '+(e.message||'
 function accountLabel(user){const u=typeof user==='string'?{username:user}:user; $('account').textContent='Signed in as '+u.username+(u.id?' · FUN LIVE ID: '+String(7000000+Number(u.id)):''); if(u.id){localStorage.setItem('golive_user',JSON.stringify({id:u.id,username:u.username,email:u.email||''}));$('logout').hidden=false;}else $('logout').hidden=true;}
 $('register').onclick=()=>action(async()=>{
  const r=await call('/api/auth/register','POST',{email:$('email').value,password:$('password').value,gender:$('register-gender')?.value||'unspecified'});
- token=r.token;sessionStorage.setItem('golive_token',token);localStorage.setItem('golive_token',token);accountLabel(r.user);$('password').value='';$('profile-gender').value=r.user.gender||$('register-gender').value;status('Account created with email. You are signed in.');window.location.replace('account.html#rooms');
+ token=r.token;sessionStorage.setItem('golive_token',token);localStorage.setItem('golive_token',token);accountLabel(r.user);$('password').value='';$('profile-gender').value=r.user.gender||$('register-gender').value;status('Account created with email. You are signed in.');window.location.replace('index.html');
 });
 $('login').onclick=()=>action(async()=>{
  const r=await call('/api/auth/login','POST',{email:$('email').value,password:$('password').value});
- token=r.token;sessionStorage.setItem('golive_token',token);localStorage.setItem('golive_token',token);accountLabel(r.user);await loadProfileGender();status('Signed in successfully.');window.location.replace('account.html#rooms');
+ token=r.token;sessionStorage.setItem('golive_token',token);localStorage.setItem('golive_token',token);accountLabel(r.user);await loadProfileGender();status('Signed in successfully.');window.location.replace('index.html');
 });
 async function loadWithdrawalSummary(){
  const box=$('withdrawal-summary');if(!box)return;
