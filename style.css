@@ -493,3 +493,14 @@ body:has(.host-live-ui) .room:has(#media-view) .controls button{
 /* Hide the camera preview area on the Go Live setup screen as requested. */
 .setup-camera-stage{height:118px!important;min-height:118px!important;background:transparent!important}
 .setup-camera-stage>video,.setup-camera-placeholder{display:none!important}
+
+/* Stable mobile Go Live layout after removing camera preview. */
+.go-live-setup{height:auto!important;min-height:0!important;overflow:visible!important}
+.setup-camera-stage{height:auto!important;min-height:0!important;display:flex!important;flex-direction:column!important;gap:12px!important;padding:14px 12px!important;overflow:visible!important;background:transparent!important}
+.setup-camera-stage>video,.setup-camera-placeholder{display:none!important}
+.setup-tools{position:static!important;z-index:5!important;display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;justify-content:center!important;gap:8px!important;order:0!important}
+.setup-tools button{position:relative!important;z-index:6!important;display:flex!important;flex-direction:row!important;justify-content:center!important;align-items:center!important;gap:5px!important;width:auto!important;min-width:72px!important;min-height:42px!important;padding:8px 10px!important;border:1px solid #684166!important;border-radius:14px!important;background:#171522!important;color:#fff!important;font-size:12px!important;touch-action:manipulation!important}
+.setup-tools button span{font-size:16px!important}
+.setup-details{position:static!important;inset:auto!important;z-index:7!important;width:100%!important;display:flex!important;flex-direction:column!important;gap:12px!important}
+#setup-start-live{position:relative!important;z-index:10!important;width:100%!important;min-height:58px!important;display:block!important;pointer-events:auto!important;touch-action:manipulation!important}
+#setup-status{display:block!important;min-height:1.2em!important;color:#fff!important;overflow-wrap:anywhere!important}
