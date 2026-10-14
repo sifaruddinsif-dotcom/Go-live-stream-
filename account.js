@@ -28,7 +28,8 @@ window.funLiveStartFromPreview=async function(){
  finally{if(button){button.disabled=false;button.innerHTML='<span>◉</span> Start Live';}}
 };
 
-/* Reliable capture-phase wiring for the Go Live setup controls. */
+/* Reliable mobile tap wiring for Go Live setup controls. */
+document.addEventListener('pointerup',event=>{const target=event.target instanceof Element?event.target:null;const button=target?.closest('#setup-start-live');if(!button)return;event.preventDefault();event.stopImmediatePropagation();window.funLiveStartFromPreview?.();},{capture:true});
 document.addEventListener('click',async event=>{
  const button=event.target.closest('#setup-start-live,#setup-camera,#setup-mic,#setup-flip,#setup-beauty,#setup-filter,#setup-video-tab,#setup-call-tab,#setup-back');
  if(!button)return;
