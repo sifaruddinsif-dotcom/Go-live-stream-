@@ -43,7 +43,7 @@ document.addEventListener('click',async event=>{
    const kind=$('room-kind');if(kind)kind.value='live';
    setupStatus('Starting your live…');
    stopSetupPreview();
-   $('create')?.click();
+   await window.funLiveStartFromPreview();
    return;
   }
   if(button.id==='setup-camera'){
