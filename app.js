@@ -147,12 +147,12 @@ let menu=e.target.closest('[data-menu-action]');if(menu){const label=menu.datase
 let setting=e.target.closest('[data-setting]');if(setting){let k=setting.dataset.setting;let next=localStorage.getItem('fun_pref_'+k)!=='false'?'false':'true';localStorage.setItem('fun_pref_'+k,next);let lab=document.getElementById(k+'-label');if(lab)lab.textContent=next==='true'?'ON':'OFF';toast(k+' preference '+(next==='true'?'enabled':'disabled')+' on this device');return}
 let a=e.target.closest('[data-action]')?.dataset.action;
 if(a==='agency-apply'){render('Agency Application');return}
-if(a==='go'){window.location.href='account.html#rooms'}
+if(a==='go'){window.location.href='account.html?v=20261014-navigation-fix1#rooms'}
 else if(a==='daily-signin'){window.location.href='account.html'}
 else if(a==='daily-claim'){const btn=document.getElementById('daily-reward-btn'),status=document.getElementById('daily-reward-status'),bal=document.getElementById('daily-reward-balance'),token=dailyToken();if(!token){toast('Please sign in first to claim daily coins.');return}if(btn){btn.disabled=true;btn.textContent='Claiming…'}try{const r=await fetch(dailyApi()+'/api/daily-rewards/claim',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:'{}'});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Reward claim failed.');if(status)status.textContent='🎉 You received '+j.coins+' coins today!';if(bal)bal.textContent='Updated wallet balance: '+Number(j.balance).toLocaleString('en-IN')+' coins';if(btn){btn.textContent='✅ Claimed Today';btn.disabled=true}toast('Daily reward: +'+j.coins+' coins!')}catch(err){if(status)status.textContent=err.message||'Reward claim failed.';if(btn){btn.disabled=false;btn.textContent='🎁 Claim Daily Reward'}}}
 else if(a==='recharge')toast('Payment gateway not connected. No money charged.')
 else if(a==='withdraw-request')toast('Withdrawal is a design preview. Secure payout is not connected, so no request was submitted.')
-else if(a==='create'){window.location.href='account.html#rooms'}
+else if(a==='create'){window.location.href='account.html?v=20261014-navigation-fix1#rooms'}
 else if(a==='chat'){let i=document.querySelector('#say');if(i&&i.value.trim()){let host=window.host||'Your Live';state.chat[host]=state.chat[host]||['Welcome to the live chat 👋'];state.chat[host].push((state.user.name||'You')+': '+i.value.trim());save();render('Live');document.querySelector('#chat-list')?.lastElementChild?.scrollIntoView({block:'nearest'});}}
 else if(a==='invite'||a==='copy-invite'){prompt('Copy this FUN LIVE invite link:',location.origin)}
 else if(a==='family-create')toast('Family creation needs backend support.')
